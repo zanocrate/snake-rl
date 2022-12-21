@@ -61,6 +61,13 @@ class SnakeEnv(gym.Env):
     
     
     def reset(self, seed=None, options=None):
+        """
+        Reset the environment.
+        Returns
+        -------
+            observation : dict, observation['screen'] is a numpy matrix representing the screen
+                                observation['direction'] is an int in Discrete(4) space representing the direction
+        """
 
         # We need the following line to seed self.np_random
         # it is the default rng inherited from the gym.Env class
