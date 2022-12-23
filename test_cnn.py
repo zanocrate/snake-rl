@@ -8,7 +8,7 @@ import numpy as np
 
 class DQN(nn.Module):
 
-    def __init__(self):
+    def __init__(self, screen_shape,n_directions, n_actions):
         super(DQN, self).__init__()
         self.layer1a = nn.Conv2d(
             in_channels=1,
@@ -22,13 +22,14 @@ class DQN(nn.Module):
             padding_mode='circular' # since the snake env is periodic!
         )
 
-        self.layer2 = nn.Linear(128, 128)
+        self.layer1b = nn.Linear(n_directions, 4)
         self.layer3 = nn.Linear(128, n_actions)
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
-    def forward(self, x):
-        x = F.relu(self.layer1(x))
+    def forward(self, input_dict : dict):
+        x = self.layer1a(input_dict['screen'])
+
         x = F.relu(self.layer2(x))
         return self.layer3(x)
 

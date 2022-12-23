@@ -16,3 +16,4 @@ observation, info = env.reset()
 while not terminated:
     action = env.action_space.sample()
     observation,reward,terminated,info = env.step(action)
+    print(observation['screen'])

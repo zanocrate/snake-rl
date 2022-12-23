@@ -28,7 +28,7 @@ class SnakeEnv(gym.Env):
 
         self.observation_space = spaces.Dict(
             {
-                "screen" : spaces.MultiDiscrete(4*np.ones((width,height)) ), # one value for empty, one for wall, one for target, one for head
+                "screen" : spaces.Box(low=-1,high=width*height,shape=(width,height),dtype=int), # the snake can have at most length n x m
                 "direction" : spaces.Discrete(4) # each possible direction the snake is moving
             }
         )
@@ -101,7 +101,7 @@ class SnakeEnv(gym.Env):
         screen = np.zeros((self.width,self.height),dtype=int)
         head_coord = self._snake[-1] # is the head
         screen[tuple(head_coord)] = 1 # 1 is the value for the head
-        for coord in self._snake[:-1]: screen[tuple(coord)] = 2 # 2 for every other piece of the snake
+        for i,coord in enumerate(self._snake[:-1][::-1]): screen[tuple(coord)] = 2+i # growing numbers for other pieces of the snake
         screen[tuple(self._food)] = -1 # -1 to represent food
 
         return {"screen" : screen,"direction":self._current_direction}
