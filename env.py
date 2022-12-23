@@ -178,7 +178,7 @@ class SnakeEnv(gym.Env):
 
         # if head collides with food, grab reward, add piece to the snake and spawn new one
         if self._check_food_collision(new_head_position):
-            reward += 1
+            reward += self.food_reward
             self._spawn_food()
             # add the next move as just a new piece of the snake, no need to move the rest
             self._snake = np.append(self._snake,[new_head_position],axis=0)
@@ -186,7 +186,7 @@ class SnakeEnv(gym.Env):
             # if head collided with snake, terminated
             if self._check_snake_collision(new_head_position):
                 terminated = True
-                reward -= 1
+                reward += self.terminated_penalty
             # move the snake
             self._snake = np.roll(self._snake,-1,axis=0)
             self._snake[-1] = new_head_position
