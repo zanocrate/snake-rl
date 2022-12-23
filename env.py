@@ -14,15 +14,15 @@ class SnakeEnv(gym.Env):
     def __init__(
         self,
         render_mode=None,
-        width = 30,
-        height = 30,
-        periodic = True, # PBC is currently the only boundary implemented
+        width = 10,
+        height = 10,
+        periodic = False, # PBC is currently the only boundary implemented
         food_reward = 1,
         terminated_penalty = -1):
 
         self.width = width
         self.height = height
-        self.periodic = True # PBC
+        self.periodic = periodic # PBC
         self.food_reward = food_reward
         self.terminated_penalty = terminated_penalty
 
@@ -99,9 +99,11 @@ class SnakeEnv(gym.Env):
         """
         
         screen = np.zeros((self.width,self.height),dtype=int)
-        head_coord = self._snake[-1] # is the head
-        screen[tuple(head_coord)] = 1 # 1 is the value for the head
-        for i,coord in enumerate(self._snake[:-1][::-1]): screen[tuple(coord)] = 2+i # growing numbers for other pieces of the snake
+        if self._snake.size != 0:
+            head_coord = self._snake[-1] # is the head
+            screen[tuple(head_coord)] = 1 # 1 is the value for the head
+            for i,coord in enumerate(self._snake[:-1][::-1]): screen[tuple(coord)] = 2+i # growing numbers for other pieces of the snake
+
         screen[tuple(self._food)] = -1 # -1 to represent food
 
         return {"screen" : screen,"direction":self._current_direction}
@@ -125,6 +127,12 @@ class SnakeEnv(gym.Env):
         """
 
         return (self._food == np.array(coords)).all()
+    
+    def _check_out_of_boundary(self,coords):
+        """
+        Checks if a [x,y] pair is out of the map.
+        """
+        return (coords[0] // self.width != 0) or (coords[1] // self.height != 0)
 
     def _spawn_food(self):
         """
@@ -172,9 +180,30 @@ class SnakeEnv(gym.Env):
 
         # compute new head position
         new_head_position = self._snake[-1] + move
-        # PBC
-        new_head_position[0] = new_head_position[0] % self.width
-        new_head_position[1] = new_head_position[1] % self.height
+        
+        if self.periodic:
+            # PBC
+            new_head_position[0] = new_head_position[0] % self.width
+            new_head_position[1] = new_head_position[1] % self.height
+        else:
+            # walls
+            if self._check_out_of_boundary(new_head_position):
+                terminated = True
+                reward += self.terminated_penalty
+
+                if self._snake.shape[0] == 1:
+                    self._snake = np.array([])
+                else:
+                    self._snake = np.roll(self._snake,-1,axis=0)
+                    self._snake = self._snake[:-1]
+                # get observation of state S'
+                observation = self._get_obs()
+                info = self._get_info()
+                if self.render_mode == "human":
+                    self._render_frame()
+
+                return observation, reward, terminated, info
+
 
         # if head collides with food, grab reward, add piece to the snake and spawn new one
         if self._check_food_collision(new_head_position):
@@ -229,20 +258,21 @@ class SnakeEnv(gym.Env):
             (0, 255, 0),
             pygame.Rect(pix_square_sizes*self._food,pix_square_sizes)
         )
-        # Now we draw the head
-        pygame.draw.rect(
-            canvas,
-            (255, 0, 0),
-            pygame.Rect(pix_square_sizes*self._snake[-1],pix_square_sizes)
-        )
-
-        # And the rest of the body
-        for piece in self._snake[:-1]:
+        if self._snake.size != 0:
+            # Now we draw the head
             pygame.draw.rect(
                 canvas,
-                (250,0,0),
-                pygame.Rect(pix_square_sizes*piece,pix_square_sizes)
+                (255, 0, 0),
+                pygame.Rect(pix_square_sizes*self._snake[-1],pix_square_sizes)
             )
+
+        # And the rest of the body
+            for piece in self._snake[:-1]:
+                pygame.draw.rect(
+                    canvas,
+                    (250,0,0),
+                    pygame.Rect(pix_square_sizes*piece,pix_square_sizes)
+                )
 
         # Finally, add some gridlines
         for y in range(self.height + 1):
