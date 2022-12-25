@@ -29,7 +29,7 @@ class SnakeEnv(gym.Env):
         self.observation_space = spaces.Dict(
             {
                 "screen" : spaces.Box(low=-1,high=width*height,shape=(width,height),dtype=int), # the snake can have at most length n x m
-                "direction" : spaces.Discrete(4) # each possible direction the snake is moving
+                "direction" : spaces.MultiDiscrete(2*np.ones(4)) # each possible direction the snake is moving
             }
         )
 
@@ -40,6 +40,13 @@ class SnakeEnv(gym.Env):
             1 : np.array([0,-1]), # DOWN
             2 : np.array([1,0]), # RIGHT
             3 : np.array([-1,0]) # LEFT
+        }
+
+        self._direction_to_onehot = {
+            0 : np.array([1.,0,0,0]),
+            1 : np.array([0,1.,0,0]),
+            2 : np.array([0,0,1.,0]),
+            3 : np.array([0,0,0,1.]),
         }
 
 
@@ -106,7 +113,7 @@ class SnakeEnv(gym.Env):
 
         screen[tuple(self._food)] = -1 # -1 to represent food
 
-        return {"screen" : screen,"direction":self._current_direction}
+        return {"screen" : screen,"direction":self._direction_to_onehot[self._current_direction]}
         
     def _get_info(self):
         """
