@@ -155,8 +155,13 @@ LR = 1e-4
 state,_ = env.reset()
 
 
-policy_net = DQN().to(device)
-target_net = DQN().to(device)
+# policy_net = DQN().to(device)
+# target_net = DQN().to(device)
+
+policy_net = torch.load('policy_net.pth')
+target_net = torch.load('target_net.pth')
+
+
 target_net.load_state_dict(policy_net.state_dict())
 
 optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)

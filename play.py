@@ -2,7 +2,7 @@ from env import *
 from train import *
 import torch
 
-env = SnakeEnv(None,15,15)
+env = SnakeEnv('human',15,15)
 env.metadata["render_fps"] = 10 # default is 4
 action_to_string = {
     0:"UP",
@@ -25,7 +25,10 @@ while not terminated:
     }
 
     with torch.no_grad():
-        action = int(policy_net(observation_reshaped).argmax(-1).reshape(1,-1)[0][0])
-
+        actions = policy_net(observation_reshaped)
+        print(actions)
+        action = int(actions.argmax(-1))
+	
+    print(action)
     observation,reward,terminated,info = env.step(action)
-    print(observation['screen'])
+    
