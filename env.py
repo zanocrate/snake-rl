@@ -14,8 +14,8 @@ class SnakeEnv(gym.Env):
     def __init__(
         self,
         render_mode=None,
-        width = 10,
-        height = 10,
+        width = 15,
+        height = 15,
         periodic = False, # PBC is currently the only boundary implemented
         food_reward = 1,
         terminated_penalty = -1):

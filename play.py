@@ -1,6 +1,9 @@
 from env import *
-from train import *
+from DQN import *
 import torch
+
+
+
 
 env = SnakeEnv('human',15,15)
 env.metadata["render_fps"] = 10 # default is 4
