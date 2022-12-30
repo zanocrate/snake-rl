@@ -18,20 +18,28 @@ class SnakeEnv(gym.Env):
         height = 15,
         periodic = False, # PBC is currently the only boundary implemented
         food_reward = 1,
-        terminated_penalty = -1):
+        terminated_penalty = -1,
+        observation_type=1):
 
         self.width = width
         self.height = height
         self.periodic = periodic # PBC
+        self.observation_type = observation_type
         self.food_reward = food_reward
         self.terminated_penalty = terminated_penalty
 
-        self.observation_space = spaces.Dict(
-            {
-                "screen" : spaces.Box(low=-1,high=width*height,shape=(width,height),dtype=int), # the snake can have at most length n x m
-                "direction" : spaces.MultiDiscrete(2*np.ones(4)) # each possible direction the snake is moving
-            }
-        )
+        # simple screen output
+        if self.observation_type == 1:
+            self.observation_space = spaces.Box(low=-1,high=1,shape=(width,height),dtype=int ) 
+        
+        # both screen and direction output, with screen having numbered snake pieces
+        elif self.observation_type == 2:
+            self.observation_space = spaces.Dict(
+                {
+                    "screen" : spaces.Box(low=-1,high=width*height,shape=(width,height),dtype=int), # the snake can have at most length n x m
+                    "direction" : spaces.MultiDiscrete(2*np.ones(4)) # each possible direction the snake is moving
+                }
+            )
 
         self.action_space = spaces.Discrete(4) # each possible direction given as input
 
@@ -106,14 +114,23 @@ class SnakeEnv(gym.Env):
         """
         
         screen = np.zeros((self.width,self.height),dtype=int)
-        if self._snake.size != 0:
-            head_coord = self._snake[-1] # is the head
-            screen[tuple(head_coord)] = 1 # 1 is the value for the head
-            for i,coord in enumerate(self._snake[:-1][::-1]): screen[tuple(coord)] = 2+i # growing numbers for other pieces of the snake
-
         screen[tuple(self._food)] = -1 # -1 to represent food
 
-        return {"screen" : screen,"direction":self._direction_to_onehot[self._current_direction]}
+        
+        if self.observation_type==1:
+            if self._snake.size != 0:
+                for coord in self._snake: screen[tuple(coord)] = 1
+            return screen
+            
+        
+        elif self.observation_type==2:
+            if self._snake.size != 0:
+                head_coord = self._snake[-1] # is the head
+                screen[tuple(head_coord)] = 1 # 1 is the value for the head
+                for i,coord in enumerate(self._snake[:-1][::-1]): screen[tuple(coord)] = 2+i # growing numbers for other pieces of the snake
+            return {"screen" : screen,"direction":self._direction_to_onehot[self._current_direction]}
+        
+
         
     def _get_info(self):
         """
