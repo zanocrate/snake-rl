@@ -2,6 +2,7 @@ from env import *
 import numpy as np
 
 import tqdm
+import os
 
 import torch
 import torch.nn as nn
@@ -21,9 +22,9 @@ HEIGHT = 15
 HISTORY_LENGTH = 4
 
 # loop parameters
-LOAD_CHECKPOINT = True
+LOAD_CHECKPOINT = False
 CHECKPOINT_EVERY=500
-CHECKPOINT_PATH='./checkpoint/'
+CHECKPOINT_PATH=os.getcwd()+'/checkpoint/'
 
 N_EPISODES=50000
 # "annealing" linear schedule for the exploration parameter
