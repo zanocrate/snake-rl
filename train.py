@@ -23,10 +23,10 @@ HISTORY_LENGTH = 4
 
 # loop parameters
 LOAD_CHECKPOINT = False
-CHECKPOINT_EVERY=500
+CHECKPOINT_EVERY=2
 CHECKPOINT_PATH=os.getcwd()+'/checkpoint/'
 
-N_EPISODES=50000
+N_EPISODES=10
 # "annealing" linear schedule for the exploration parameter
 EPSILON_START=0.1
 EPSILON_END=0.000001
@@ -322,6 +322,7 @@ for i_episode in tqdm.trange(N_EPISODES):
             break
 
     if (i_episode+1) % CHECKPOINT_EVERY == 0: 
-        np.save(CHECKPOINT_PATH+'training_episode_durations',np.array(episode_durations))
-        torch.save(policy_net,CHECKPOINT_PATH+'policy_net.pth')
-        torch.save(target_net,CHECKPOINT_PATH+'target_net.pth')
+        index = (i_episode+1) // CHECKPOINT_EVERY
+        np.save(CHECKPOINT_PATH+'training_episode_durations.'+str(index)+'.npy',np.array(episode_durations))
+        torch.save(policy_net,CHECKPOINT_PATH+'policy_net.'+str(index)+'.pth')
+        torch.save(target_net,CHECKPOINT_PATH+'target_net.'+str(index)+'.pth')
