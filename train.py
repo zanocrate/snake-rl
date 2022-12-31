@@ -20,6 +20,10 @@ from itertools import count
 WIDTH = 15
 HEIGHT = 15
 HISTORY_LENGTH = 4
+FOOD_REWARD = 10
+STEP_PENALTY = -1
+TERMINATED_PENALTY = -10
+MAX_STEPS = 100
 
 # loop parameters
 LOAD_CHECKPOINT = False
@@ -56,6 +60,10 @@ env = SnakeEnv(
     width=WIDTH,
     height=HEIGHT,
     periodic=False,
+    food_reward=FOOD_REWARD,
+    step_penalty=STEP_PENALTY,
+    terminated_penalty=TERMINATED_PENALTY,
+    max_steps=MAX_STEPS,
     observation_type=1, # this returns only the screen
     history_length=HISTORY_LENGTH
 )

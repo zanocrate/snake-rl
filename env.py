@@ -19,6 +19,8 @@ class SnakeEnv(gym.Env):
         periodic = False, # PBC is currently the only boundary implemented
         food_reward = 1,
         terminated_penalty = -1,
+        step_penalty = 0,
+        max_steps=100, # maximum number of steps before terminated
         observation_type=1,
         history_length=1):
 
@@ -30,6 +32,8 @@ class SnakeEnv(gym.Env):
         # RL parameters
         self.food_reward = food_reward
         self.terminated_penalty = terminated_penalty
+        self.step_penalty = step_penalty
+        self.max_steps = max_steps
 
         # observation settings
         self.observation_type = observation_type
@@ -123,6 +127,9 @@ class SnakeEnv(gym.Env):
         #       [x0,y0]]
         self._snake = self.np_random.integers((self.width,self.height),size=(1,2))
         self._current_direction = self.np_random.integers(4) # random integer
+
+        # reset the counter for steps without food
+        self._steps_no_food = 0
 
         # generate food somewhere
         self._spawn_food()
@@ -286,6 +293,7 @@ class SnakeEnv(gym.Env):
         # if head collides with food, grab reward, add piece to the snake and spawn new one
         if self._check_food_collision(new_head_position):
             reward += self.food_reward
+            self._steps_no_food = 0
             self._spawn_food()
             # add the next move as just a new piece of the snake, no need to move the rest
             self._snake = np.append(self._snake,[new_head_position],axis=0)
@@ -293,10 +301,23 @@ class SnakeEnv(gym.Env):
             # if head collided with snake, terminated
             if self._check_snake_collision(new_head_position):
                 terminated = True
-                reward += self.terminated_penalty
+                reward = self.terminated_penalty
+                self._steps_no_food=0
+
             # move the snake
             self._snake = np.roll(self._snake,-1,axis=0)
             self._snake[-1] = new_head_position
+
+            # penalty for empty step
+            reward += self.step_penalty
+
+            # add count for steps without food
+            self._steps_no_food += 1
+
+            # check if max empty steps
+            if self._steps_no_food > self.max_steps:
+                terminated = True
+                reward = self.terminated_penalty
             
                 
         
