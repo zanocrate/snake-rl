@@ -1,184 +1,261 @@
-# import snake, numpy, gym and pygame
-from env import *
-import tqdm
+# game parameters
 
-import math
-import random
-import matplotlib
-import matplotlib.pyplot as plt
-from collections import namedtuple, deque
-from itertools import count
+WIDTH = 15
+HEIGHT = 15
+HISTORY_LENGTH = 4
+
+# loop parameters
+N_EPISODES=10000
+EPSILON=0.1
+TAU=0.1
+
+MEMORY_CAPACITY=1000000
+
+LR = 1e-3
+BATCH_SIZE = 512
+EPOCHS = 5
+
+GAMMA=0.99
+
+
+
+from env import *
+import numpy as np
+
+import tqdm
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 
-env = SnakeEnv(
-    render_mode=None,
-    width=15,
-    height=15,
-    periodic=False,
-    food_reward=1,
-    terminated_penalty=-1
-)
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
-# set up matplotlib
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
+from itertools import count
 
-plt.ion()
+
+
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-# REPLAY MEMORY
-# this is where we store the (s,a,s',r) transitions in order to randomly sample them in the training steps
-# this is to avoid highly correlated updates (look up experience replay buffer)
-
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
 
 
-class ReplayMemory(object):
+env = SnakeEnv(
+    render_mode=None,
+    width=WIDTH,
+    height=HEIGHT,
+    periodic=False,
+    observation_type=1, # this returns only the screen
+    history_length=HISTORY_LENGTH
+)
 
-    def __init__(self, capacity):
-        self.memory = deque([],maxlen=capacity)
+class DQN(nn.Module):
+    """
+    Class for the Neural Network of the Q value function.
+    """
+    def __init__(self,history_length):
+        super(DQN, self).__init__()
 
-    def push(self, *args):
-        """Save a transition"""
-        self.memory.append(Transition(*args))
+        # a first layer with narrow filters to identify walls, corners, dead ends...
+        # returns (w-2)x(h-2) when padding is 'valid'
+        self.conv1 = nn.Conv2d(
+            in_channels=history_length, # the number of states fed
+            out_channels=15, # the number of kernels
+            kernel_size=3, # a single int means square kernel
+            stride=1, # it's the default: no skipping
+            padding='valid', # no padding
+            # dilation=1, #this expands the filter without augmenting the parameters... to identify spatially large patterns with less parameters
+            # groups=1, # determines the connection between input channels and output channels
+            # bias=True
+            # padding_mode='circular' # revert to default which is zeroes... circular breaks it
+        )
+        
+        # non linear activation
+        self.activation1 = nn.ReLU()
+        
+        # a larger kernel size to identify bigger configurations of smaller patterns?
+        # since we are at a 13x13 screen, maybe do a 5x5 kernel
+        self.conv2 = nn.Conv2d(
+            in_channels=15,
+            out_channels=15,
+            kernel_size=7,
+            stride=4,
+            padding='valid'
+        )
 
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        self.activation2 = nn.ReLU()
 
+        self.conv3 = nn.Conv2d(
+                in_channels=15,
+                out_channels=15,
+                kernel_size=2,
+                padding='valid',
+                bias=True
+            )
+        
+        self.activation3 = nn.ReLU()
+
+
+        # now the feed forward layers
+        self.ffl1 = nn.Linear(
+            15,
+            256
+        )
+
+        self.ffl_activation1 = nn.ReLU()
+
+        # final layer
+        self.ffl2= nn.Linear(
+            256,
+            4
+        )
+
+
+    # Called with either one element to determine next action, or a batch
+    # during optimization. Returns tensor([[left0exp,right0exp]...]).
+    def forward(self, x):
+
+        x = torch.Tensor(x)
+        x = self.activation1(self.conv1(x))
+        x = self.activation2(self.conv2(x))
+        x = self.activation3(self.conv3(x))
+        x = self.ffl_activation1(self.ffl1(x.flatten(start_dim=1))) # do not drop the batch dimension
+        x = self.ffl2(x)
+
+        return x
+
+
+class ReplayMemory(Dataset):
+
+    def __init__(self,max_capacity):
+        
+        # init max_capacity
+        self.max_capacity = max_capacity
+        # init samples as empty lists
+        self.s = []
+        self.a = []
+        self.r = []
+        self.s2 = []
+        self.terminal = []
+    
     def __len__(self):
-        return len(self.memory)
+        return len(self.s) # return length of one of the lists
+    
+    def __getitem__(self,idx):
+        
+        sample = {
+            's' : self.s[idx],
+            'a' : self.a[idx],
+            'r' : self.r[idx],
+            's2' : self.s2[idx],
+            'terminal' : self.terminal[idx]
+        }
+
+        return sample
+
+    def _add_sample(self,s,a,r,s2,terminal):
+        """
+        s and s2 are numpy arrays of shape (history_len,width,height)
+        a is an int
+        r is float
+        """
+        self.s.append(s)
+        self.a.append(a)
+        self.r.append(r)
+        self.s2.append(s2)
+        self.terminal.append(terminal)
+        
+        if self.__len__() > self.max_capacity:
+            random_drop = np.random.randint(0,self.max_capacity)
+            self.s.pop(random_drop)
+            self.a.pop(random_drop)
+            self.r.pop(random_drop)
+            self.s2.pop(random_drop)
 
 
-# ------------------------------------- TRAINING
-
-# BATCH_SIZE is the number of transitions sampled from the replay buffer
-# GAMMA is the discount factor as mentioned in the previous section
-# EPS_START is the starting value of epsilon
-# EPS_END is the final value of epsilon
-# EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay
-# TAU is the update rate of the target network
-# LR is the learning rate of the AdamW optimizer
-BATCH_SIZE = 128
-GAMMA = 0.99
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 1000
-TAU = 0.005
-LR = 1e-4
-
-if __name__ == '__main__':
-    state,_ = env.reset()
+def random_policy():
+    return np.random.randint(4)
 
 
-    # policy_net = DQN().to(device)
-    # target_net = DQN().to(device)
-
-    policy_net = torch.load('policy_net.pth')
-    target_net = torch.load('target_net.pth')
-
-
-    target_net.load_state_dict(policy_net.state_dict())
-
-    optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-    memory = ReplayMemory(10000)
-
-
-    steps_done = 0
-
-
-def select_action(state):
-    state_reshaped = {
-        'screen' : state['screen'].reshape(1,15,15),
-        'direction' : state['direction'].reshape(1,4)
-    }
-    global steps_done
-    sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(-1. * steps_done / EPS_DECAY)
-    steps_done += 1
-    if sample > eps_threshold:
-        with torch.no_grad():
-            # t.max(1) will return largest column value of each row.
-            # second column on max result is index of where max element was
-            # found, so we pick action with the larger expected reward.
-            return policy_net(state_reshaped).argmax(-1).reshape(1,-1)
+def epsilon_greedy_policy(state,epsilon,net):
+    if isinstance(state,dict):
+        raise NotImplementedError()
     else:
-        return torch.tensor([[env.action_space.sample()]], device=device, dtype=torch.long)
-
-
-episode_durations = []
-
-
-def plot_durations(show_result=False):
-    plt.figure(1)
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
-    if show_result:
-        plt.title('Result')
-    else:
-        plt.clf()
-        plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    plt.plot(durations_t.numpy())
-    # Take 100 episode averages and plot them too
-    if len(durations_t) >= 100:
-        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
-
-    plt.pause(0.001)  # pause a bit so that plots are updated
-    if is_ipython:
-        if not show_result:
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
+        if np.random.rand() < epsilon:
+            return random_policy()
         else:
-            display.display(plt.gcf())
+            with torch.no_grad(): # disable gradient calculations. useful when doing inference to skip computation
+                # find the maximum over the action dim for each batch sample
+                # but batch_size is one in inference so expand dims
+                q = net(np.expand_dims(state,axis=0))
+                a = q.argmax(1).item() 
+                return a # is an int
+            
 
+def play_episode(policy,env,memory=None,**policy_kwargs):
+    """
+    Play an episode following a given policy, and if ReplayMemory is given adds (s,a,r,s2) transitions to it.
+    Args:
+    -----
+        policy : func, receives a state and returns an action
+        memory : ReplayMemory instance
+    Returns:
+    -----
+        episode : list of [(s,a,r,s2,done)] tuples
+    """
+    done = False
+    episode = []
+    while not done:
+        s,_=env.reset()
+        
+        a = policy(s,**policy_kwargs)
+
+        s2,r,done,_=env.step(a)
+
+        if memory is not None:
+            memory._add_sample(s,a,r,s2,done)
+        episode.append((s,a,r,s2))
+    return episode
+
+
+
+# thetai and thetai-1
+policy_net = DQN(history_length=HISTORY_LENGTH).to(device) # theta i
+target_net = DQN(history_length=HISTORY_LENGTH).to(device) # theta i-1, used to compute the target yi
+# initially clone them
+target_net.load_state_dict(policy_net.state_dict())
+
+# Adam optimizer
+optimizer = optim.Adam(policy_net.parameters(), lr=LR)
+# replay memory
+REPLAY_MEMORY = ReplayMemory(MEMORY_CAPACITY)
 
 def optimize_model():
-    if len(memory) < BATCH_SIZE:
+    if REPLAY_MEMORY.__len__() < BATCH_SIZE:
+        # do not optimize if we do not have enough samples
         return
-    transitions = memory.sample(BATCH_SIZE)
+    # data loader
+    data_loader = DataLoader(REPLAY_MEMORY,BATCH_SIZE,True)
 
-
-    # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-    # detailed explanation). This converts batch-array of Transitions
-    # to Transition of batch-arrays.
-    batch = Transition(*zip(*transitions))
-
+    batch=next(iter(data_loader))
 
 
     # Compute a mask of non-final states and concatenate the batch elements
     # (a final state would've been the one after which simulation ended)
-    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                          batch.next_state)), device=device, dtype=torch.bool)
-    # non_final_next_states = torch.cat([s for s in batch.next_state
-                                                # if s is not None])
-    non_final_next_states = {
-        'screen' : torch.Tensor(np.array([s['screen'] for s in batch.next_state if s is not None])),
-        'direction' : torch.Tensor(np.array([s['direction'] for s in batch.next_state if s is not None]))
-    }
-    # non_final_next_states['screen'] is a batch of observations fro the screen...
-    # state_batch = torch.cat(batch.state)
-    screen_batch = torch.Tensor(np.array([state['screen'] for state in batch.state]))
-    direction_batch = torch.Tensor((np.array([state['direction'] for state in batch.state])))
-    obs_batch = {'screen':screen_batch,'direction':direction_batch}
-    action_batch = torch.cat(batch.action)
-    reward_batch = torch.cat(batch.reward)
+    non_final_mask = torch.logical_not(batch['terminal']).to(device)
+    non_final_next_states = batch['s2'][non_final_mask].to(device)
+    state_batch = batch['s'].to(device)
+    action_batch = batch['a'].to(device)
+    reward_batch = batch['r'].to(device)
 
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
-    state_action_values = policy_net(obs_batch).gather(1, action_batch)
+    state_action_values = policy_net(state_batch.numpy()).gather(1,action_batch[:,None])
 
     # Compute V(s_{t+1}) for all next states.
     # Expected values of actions for non_final_next_states are computed based
@@ -187,12 +264,13 @@ def optimize_model():
     # state value or 0 in case the state was final.
     next_state_values = torch.zeros(BATCH_SIZE, device=device)
     with torch.no_grad():
-        next_state_values[non_final_mask] = target_net(non_final_next_states).argmax()
+        # compute
+        next_state_values[non_final_mask] = target_net(non_final_next_states.numpy()).max(1)[0]
     # Compute the expected Q values
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
     # Compute Huber loss
-    criterion = nn.SmoothL1Loss()
+    criterion = nn.MSELoss()
     loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
 
     # Optimize the model
@@ -202,50 +280,38 @@ def optimize_model():
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
 
-if torch.cuda.is_available():
-    num_episodes = 600
-else:
-    num_episodes = 50000
+episode_durations=[]
 
-if __name__ == "__main__":
+for i_episode in tqdm.trange(N_EPISODES):
 
-    for i_episode in tqdm.trange(num_episodes):
-        # Initialize the environment and get it's state
-        state,_=env.reset()
-
-        for t in count():
-            action = select_action(state)
-            observation, reward, terminated, _ = env.step(action.item())
-            reward = torch.tensor([reward], device=device)
-            done = terminated
-
-            if terminated:
-                next_state = None
-            else:
-                next_state = observation
-
-            # Store the transition in memory
-            memory.push(state, action, next_state, reward)
-
-            # Move to the next state
-            state = next_state
-
-            # Perform one step of the optimization (on the policy network)
-            optimize_model()
-
-            # Soft update of the target network's weights
-            # θ′ ← τ θ + (1 −τ )θ′
-            target_net_state_dict = target_net.state_dict()
-            policy_net_state_dict = policy_net.state_dict()
-            for key in policy_net_state_dict:
-                target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
-            target_net.load_state_dict(target_net_state_dict)
-
-            if done:
-                episode_durations.append(t + 1)
-                plot_durations()
-                break
+    state,_ = env.reset()
+    for t in count():
+        action = epsilon_greedy_policy(state,epsilon=EPSILON,net=policy_net)
+        next_state, reward, done, _ = env.step(action)
 
 
-    torch.save(policy_net,'policy_net.pth')
-    torch.save(target_net,'target_net.pth')
+
+        # Store the transition in memory
+        REPLAY_MEMORY._add_sample(state,action,reward,next_state,done)
+
+        # Move to the next state
+        state = next_state
+
+        # Perform one step of the optimization (on the policy network)
+        optimize_model()
+
+        # Soft update of the target network's weights
+        # θ′ ← τ θ + (1 −τ )θ′
+        target_net_state_dict = target_net.state_dict()
+        policy_net_state_dict = policy_net.state_dict()
+        for key in policy_net_state_dict:
+            target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
+        target_net.load_state_dict(target_net_state_dict)
+        if done:
+            episode_durations.append(t+1)
+            break
+
+
+
+torch.save(policy_net,'policy_net.pth')
+torch.save(target_net,'target_net.pth')
