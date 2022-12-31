@@ -23,10 +23,10 @@ HISTORY_LENGTH = 4
 
 # loop parameters
 LOAD_CHECKPOINT = False
-CHECKPOINT_EVERY=2
+CHECKPOINT_EVERY=500
 CHECKPOINT_PATH=os.getcwd()+'/checkpoint/'
 
-N_EPISODES=10
+N_EPISODES=500000
 # "annealing" linear schedule for the exploration parameter
 EPSILON_START=0.1
 EPSILON_END=0.000001
