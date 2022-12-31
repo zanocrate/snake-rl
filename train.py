@@ -312,6 +312,6 @@ for i_episode in tqdm.trange(N_EPISODES):
             break
 
 
-
+np.save(np.array('training_episode_durations',episode_durations))
 torch.save(policy_net,'policy_net.pth')
 torch.save(target_net,'target_net.pth')
