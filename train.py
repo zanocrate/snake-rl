@@ -1,24 +1,3 @@
-# game parameters
-
-WIDTH = 15
-HEIGHT = 15
-HISTORY_LENGTH = 4
-
-# loop parameters
-N_EPISODES=10000
-EPSILON=0.1
-TAU=0.1
-
-MEMORY_CAPACITY=1000000
-
-LR = 1e-3
-BATCH_SIZE = 512
-EPOCHS = 5
-
-GAMMA=0.99
-
-
-
 from env import *
 import numpy as np
 
@@ -35,7 +14,34 @@ from matplotlib.animation import FuncAnimation
 
 from itertools import count
 
+# game parameters
 
+WIDTH = 15
+HEIGHT = 15
+HISTORY_LENGTH = 4
+
+# loop parameters
+LOAD_CHECKPOINT = True
+CHECKPOINT_EVERY=500
+CHECKPOINT_PATH='./checkpoint/'
+
+N_EPISODES=50000
+# "annealing" linear schedule for the exploration parameter
+EPSILON_START=0.1
+EPSILON_END=0.000001
+EPSILONS=np.linspace(EPSILON_START,EPSILON_END,N_EPISODES)
+
+# or is it better to decrease it exponentially?
+# also do this to tau?
+
+TAU=0.1
+
+MEMORY_CAPACITY=1000000
+
+LR = 1e-3
+BATCH_SIZE = 512
+
+GAMMA=0.99
 
 
 # if gpu is to be used
@@ -222,12 +228,15 @@ def play_episode(policy,env,memory=None,**policy_kwargs):
     return episode
 
 
-
-# thetai and thetai-1
-policy_net = DQN(history_length=HISTORY_LENGTH).to(device) # theta i
-target_net = DQN(history_length=HISTORY_LENGTH).to(device) # theta i-1, used to compute the target yi
-# initially clone them
-target_net.load_state_dict(policy_net.state_dict())
+if LOAD_CHECKPOINT:
+    policy_net = torch.load(CHECKPOINT_PATH+'policy_net.pth').to(device)
+    target_net = torch.load(CHECKPOINT_PATH+'target_net.pth').to(device)
+else:
+    # thetai and thetai-1
+    policy_net = DQN(history_length=HISTORY_LENGTH).to(device) # theta i
+    target_net = DQN(history_length=HISTORY_LENGTH).to(device) # theta i-1, used to compute the target yi
+    # initially clone them
+    target_net.load_state_dict(policy_net.state_dict())
 
 # Adam optimizer
 optimizer = optim.Adam(policy_net.parameters(), lr=LR)
@@ -286,7 +295,7 @@ for i_episode in tqdm.trange(N_EPISODES):
 
     state,_ = env.reset()
     for t in count():
-        action = epsilon_greedy_policy(state,epsilon=EPSILON,net=policy_net)
+        action = epsilon_greedy_policy(state,epsilon=EPSILONS[i_episode],net=policy_net)
         next_state, reward, done, _ = env.step(action)
 
 
@@ -311,7 +320,7 @@ for i_episode in tqdm.trange(N_EPISODES):
             episode_durations.append(t+1)
             break
 
-
-np.save(np.array('training_episode_durations',episode_durations))
-torch.save(policy_net,'policy_net.pth')
-torch.save(target_net,'target_net.pth')
+    if (i_episode+1) % CHECKPOINT_EVERY == 0: 
+        np.save(CHECKPOINT_PATH+'training_episode_durations',np.array(episode_durations))
+        torch.save(policy_net,CHECKPOINT_PATH+'policy_net.pth')
+        torch.save(target_net,CHECKPOINT_PATH+'target_net.pth')
