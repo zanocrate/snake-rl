@@ -1,0 +1,23 @@
+{
+    "env" : {
+        "width" : 15,
+        "height" : 15,
+        "history_length" : 2,
+        "periodic" : false,
+        "food_reward" : 10,
+        "step_penalty" : -1,
+        "terminated_penalty" : -10,
+        "max_steps" : 500,
+        "observation_type" : 1
+    },
+
+    "training" : {
+        "buffer_size" : 100000,
+        "batch_size" : 256,
+        "tau" : 0.1,
+        "gamma" : 0.99,
+        "learning_rate" : 0.1,
+        "epsilon" : 0.1,
+        "n_episodes" : 500
+    }
+}

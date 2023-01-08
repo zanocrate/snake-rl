@@ -7,7 +7,7 @@ import numpy as np
 class SnakeEnv(gym.Env):
 
     metadata = {
-        'render_modes' : ['human','rgb_array'],
+        'render_modes' : ['human'],
         'render_fps' : 4
     }
 
@@ -16,7 +16,7 @@ class SnakeEnv(gym.Env):
         render_mode=None,
         width = 15,
         height = 15,
-        periodic = False, # PBC is currently the only boundary implemented
+        periodic = False,
         food_reward = 1,
         terminated_penalty = -1,
         step_penalty = 0,

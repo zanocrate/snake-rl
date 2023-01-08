@@ -1,9 +1,5 @@
-from env import *
 import torch
 import torch.nn as nn
-
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DQN(nn.Module):
     """
@@ -29,8 +25,6 @@ class DQN(nn.Module):
         # non linear activation
         self.activation1 = nn.ReLU()
         
-        # a larger kernel size to identify bigger configurations of smaller patterns?
-        # since we are at a 13x13 screen, maybe do a 5x5 kernel
         self.conv2 = nn.Conv2d(
             in_channels=15,
             out_channels=15,
@@ -79,44 +73,3 @@ class DQN(nn.Module):
         x = self.ffl2(x)
 
         return x
-
-# game parameters
-
-WIDTH = 15
-HEIGHT = 15
-HISTORY_LENGTH = 4
-
-env = SnakeEnv(
-    render_mode='human',
-    width=WIDTH,
-    height=HEIGHT,
-    periodic=False,
-    observation_type=1, # this returns only the screen
-    history_length=HISTORY_LENGTH
-)
-env.metadata["render_fps"] = 10 # default is 4
-action_to_string = {
-    0:"UP",
-    1:"DOWN",
-    2:"RIGHT",
-    3:"LEFT"
-}
-
-terminated = False
-
-observation, info = env.reset()
-
-policy_net = torch.load('./policy_net.511.pth')
-
-while not terminated:
-    
-    observation = np.expand_dims(observation,0)
-
-    with torch.no_grad():
-        actions = policy_net(observation)
-        action = int(actions.argmax(-1))
-	
-        print(actions)
-        print(action)
-    observation,reward,terminated,info = env.step(action)
-    
