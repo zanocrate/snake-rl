@@ -42,8 +42,7 @@ env = SnakeEnv(**config['env'])
     
 
 
-# Adam optimizer
-optimizer = optim.Adam(policy_net.parameters(), lr=LR)
+
 # replay memory
 REPLAY_MEMORY = ReplayMemory(MEMORY_CAPACITY)
 
@@ -59,6 +58,9 @@ for LR in LRS:
         target_net = DQN(history_length=config['env']['history_lenght']).to(device) # theta i-1, used to compute the target yi
         # initially clone them
         target_net.load_state_dict(policy_net.state_dict())
+
+        # Adam optimizer
+        optimizer = optim.Adam(policy_net.parameters(), lr=LR)
 
         episode_durations=[]
         for i_episode in tqdm.trange(N_EPISODES):
