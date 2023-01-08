@@ -54,8 +54,8 @@ for LR in LRS:
         print('TAU=',TAU)
 
         # reinit models
-        policy_net = DQN(history_length=config['env']['history_lenght']).to(device) # theta i
-        target_net = DQN(history_length=config['env']['history_lenght']).to(device) # theta i-1, used to compute the target yi
+        policy_net = DQN(history_length=config['env']['history_length']).to(device) # theta i
+        target_net = DQN(history_length=config['env']['history_length']).to(device) # theta i-1, used to compute the target yi
         # initially clone them
         target_net.load_state_dict(policy_net.state_dict())
 
