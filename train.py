@@ -14,7 +14,7 @@ with open('config.json') as f:
     config = json.load(f)
 
 
-N_EPISODES=1000
+N_EPISODES=5000
 # "annealing" linear schedule for the exploration parameter
 EPSILON_START=0.1
 EPSILON_END=0.000001
