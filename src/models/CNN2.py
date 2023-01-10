@@ -13,10 +13,10 @@ class DQN(nn.Module):
     def __init__(self,history_length):
         super(DQN, self).__init__()
 
-        # should result in 30 5x5 matrices
+        # should result in 60 5x5 matrices
         self.conv1 = nn.Conv2d(
             in_channels=history_length, 
-            out_channels=30, 
+            out_channels=60, 
             kernel_size=3, 
             stride=3,
             padding='valid'
@@ -30,7 +30,7 @@ class DQN(nn.Module):
 
         # a single feed forward layer
         self.ffl1 = nn.Linear(
-            30*5*5,
+            60*5*5,
             256
         )
 

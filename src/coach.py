@@ -43,6 +43,10 @@ class Coach:
         self.gamma=gamma
         self.epsilon=epsilon # could be a list
         self.tau=tau
+
+        # initialize best net found
+        self.best_performance = 1
+        self.best_performance_net = deepcopy(self.policy_net)
         
 
 
@@ -129,6 +133,9 @@ class Coach:
             # play an episode, at every step optimize and update replay buffer, and returns the duration
             t=self.play_episode()
             episode_durations.append(t)
+            if t > self.best_performance:
+                self.best_performance = t
+                self.best_performance_net = deepcopy(self.policy_net)
         return episode_durations
 
 
