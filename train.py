@@ -1,5 +1,5 @@
 # change model here
-from src.models.CNN1 import DQN
+from src.models.CNN2 import DQN
 
 N_EPISODES=100
 
@@ -28,6 +28,7 @@ coach = Coach(
 )
 
 
-coach.train(N_EPISODES)
+durations = coach.train(N_EPISODES)
 
-torch.save(dqn.state_dict(), 'trained_models/CNN1_100ep.pth')
+torch.save(dqn.state_dict(), 'trained_models/CNN2_5000ep.pth')
+np.save('trained_models/CNN2_5000ep_durations.npy',durations)
