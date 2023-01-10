@@ -1,0 +1,6 @@
+gym=0.26.2
+torch=1.13.1
+numpy=1.21.5
+pygame=2.1.2
+tqdm=4.64.1
+json=2.0.9

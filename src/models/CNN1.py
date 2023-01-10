@@ -1,3 +1,8 @@
+# First CNN model for SnakeEnv with
+# width 15
+# height 15
+# history_length variable
+
 import torch
 import torch.nn as nn
 
@@ -55,7 +60,7 @@ class DQN(nn.Module):
         self.ffl_activation1 = nn.ReLU()
 
         # final layer
-        self.ffl2= nn.Linear(
+        self.output_layer= nn.Linear(
             256,
             4
         )
@@ -70,6 +75,6 @@ class DQN(nn.Module):
         x = self.activation2(self.conv2(x))
         x = self.activation3(self.conv3(x))
         x = self.ffl_activation1(self.ffl1(x.flatten(start_dim=1))) # do not drop the batch dimension
-        x = self.ffl2(x)
+        x = self.output_layer(x)
 
         return x

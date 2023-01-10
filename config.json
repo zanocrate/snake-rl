@@ -16,8 +16,10 @@
         "batch_size" : 256,
         "tau" : 0.1,
         "gamma" : 0.99,
-        "learning_rate" : 0.1,
         "epsilon" : 0.1,
-        "n_episodes" : 500
+        "n_episodes" : 500,
+        "optimizer" : {
+            "lr" : 0.01
+        }
     }
 }
