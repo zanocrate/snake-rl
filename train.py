@@ -1,7 +1,7 @@
-N_EPISODES=5000
-
+N_EPISODES=1000
+save_name = 'CNN2_relative'
 # change model here
-from src.models.CNN2 import DQN
+from src.models.CNN2_relative import DQN
 
 from src.coach import * # also imports Coach class
 
@@ -30,5 +30,5 @@ coach = Coach(
 
 durations = coach.train(N_EPISODES)
 
-torch.save(dqn.state_dict(), 'trained_models/CNN2_1024bs.pth')
-np.save('data/CNN2_1024_bs.npy',durations)
+torch.save(dqn.state_dict(), 'trained_models/'+str(save_name)+'.pth')
+np.save('data/'+str(save_name)+'.npy',durations)
