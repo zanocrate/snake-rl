@@ -8,6 +8,7 @@ class SnakeEnv(gym.Env):
 
     metadata = {
         'render_modes' : ['human'],
+        'action_space_types' : ['absolute','relative'],
         'render_fps' : 4
     }
 
@@ -21,6 +22,7 @@ class SnakeEnv(gym.Env):
         terminated_penalty = -1,
         step_penalty = 0,
         max_steps=100, # maximum number of steps before terminated
+        action_space_type = 'absolute',
         observation_type=1,
         history_length=1):
 
@@ -34,6 +36,10 @@ class SnakeEnv(gym.Env):
         self.terminated_penalty = terminated_penalty
         self.step_penalty = step_penalty
         self.max_steps = max_steps
+
+        # action space settings
+        assert action_space_type in self.metadata["action_space_types"]
+        self.action_space_type = action_space_type
 
         # observation settings
         self.observation_type = observation_type
@@ -53,7 +59,6 @@ class SnakeEnv(gym.Env):
         # both screen having numbered snake pieces and direction output
         elif self.observation_type == 2:
 
-
             # define history as dict of matrices
             self.history = {
                 'screen' : np.zeros((self.history_length,self.width,self.height),dtype=int),
@@ -68,11 +73,19 @@ class SnakeEnv(gym.Env):
             )
 
         # define action space
-        self.action_space = spaces.Discrete(4) # each possible direction given as input
+        if self.action_space_type == 'absolute':
+            self.action_space = spaces.Discrete(4) # each of the 4 direction as input
+        elif self.action_space_type == 'relative':
+            self.action_space = spaces.Discrete(3) # input relative to the head
+            self.rotation_matrix = {
+                0 : np.array([[0,-1],[1,0]]), # rotate 90 degree CCW
+                1 : np.eye(2,dtype=int), # stay the same
+                2 : np.array([[0,1],[-1,0]]) # rotate 90 degrees CW
+            }
 
 
         # look up tables for the action index
-        self._action_to_direction = {
+        self._int_to_direction = {
             0 : np.array([0,1]), # UP
             1 : np.array([0,-1]), # DOWN
             2 : np.array([1,0]), # RIGHT
@@ -126,7 +139,7 @@ class SnakeEnv(gym.Env):
         # like [[x1,y1],
         #       [x0,y0]]
         self._snake = self.np_random.integers((self.width,self.height),size=(1,2))
-        self._current_direction = self.np_random.integers(4) # random integer
+        self._current_direction = self._int_to_direction[self.np_random.integers(4)] # choose one of the four directions at random
 
         # reset the counter for steps without food
         self._steps_no_food = 0
@@ -191,8 +204,32 @@ class SnakeEnv(gym.Env):
             self.history['direction'] = self._direction_to_onehot[self._current_direction]
             return self.history
         
-
+    def _get_new_head_position(self,action):
+        """
+        Get new head coordinates from current snake given action.
+        Returns [x,y] pair
+        """
+        if self.action_space_type == 'absolute':
+            # get vector of the next step according to input int
+            move = self._int_to_direction[action]
+            
+            if (move @ self._current_direction) == 0:
+                # move is perpendicular, accept new move as new direction
+                self._current_direction= self._int_to_direction[action]
+                # otherwise just keep old direction
+            
+            # compute new head position
+            new_head_position = self._snake[-1] + self._current_direction
+            return new_head_position
         
+        elif self.action_space_type == 'relative':
+            # calculate new direction as the chosen rotation applied to current direction
+            self._current_direction = self.rotation_matrix[action] @ self._current_direction
+
+            # compute new head position
+            new_head_position = self._snake[-1] + self._current_direction
+            return new_head_position
+  
     def _get_info(self):
         """
         Return additional information on the state.
@@ -252,19 +289,7 @@ class SnakeEnv(gym.Env):
         # init to zero
         reward = 0
 
-        # get vector of the next step according to input int
-        move = self._action_to_direction[action]
-        
-        if (move @ self._action_to_direction[self._current_direction]) == 0:
-            # move is perpendicular, accept new move as new direction
-            self._current_direction=action
-        else:
-            # move is parallel, keep old direction the same and specify that the new move is just the previous direction
-            move = self._action_to_direction[self._current_direction] 
-        
-
-        # compute new head position
-        new_head_position = self._snake[-1] + move
+        new_head_position = self._get_new_head_position(action)
         
         if self.periodic:
             # PBC

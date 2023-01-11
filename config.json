@@ -8,7 +8,8 @@
         "step_penalty" : -1,
         "terminated_penalty" : -10,
         "max_steps" : 500,
-        "observation_type" : 1
+        "observation_type" : 1,
+        "action_space_type" : "relative"
     },
 
     "training" : {
