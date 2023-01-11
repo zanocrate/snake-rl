@@ -1,4 +1,5 @@
 N_EPISODES=5000
+SEED=567 # set to None to randomize starts
 save_name = 'CNN2_relative'
 # change model here
 from src.models.CNN2_relative import DQN
@@ -28,7 +29,8 @@ coach = Coach(
 )
 
 
-durations = coach.train(N_EPISODES)
+durations,returns = coach.train(N_EPISODES)
 
 torch.save(dqn.state_dict(), 'trained_models/'+str(save_name)+'.pth')
-np.save('data/'+str(save_name)+'.npy',durations)
+np.save('data/'+str(save_name)+'.durations.npy',durations)
+np.save('data/'+str(save_name)+'.returns.npy',returns)

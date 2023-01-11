@@ -1,7 +1,7 @@
 # choose model here
-from src.models.CNN2 import DQN
+from src.models.CNN2_relative import DQN
 # choose model state dict file here
-model_state_path = 'trained_models/CNN2_1024bs.pth'
+MODEL_STATE_FILENAME = "CNN2_relative.pth"
 
 
 from src.env import SnakeEnv
@@ -18,7 +18,8 @@ with open('config.json') as f:
 
 # set render mode to human
 config['env']['render_mode'] = 'human'
-config['env']['action_space_type'] ='absolute'
+
+model_state_path = 'trained_models/'+config['env']['action_space_type']+'/'+MODEL_STATE_FILENAME
 
 # initialize env
 env = SnakeEnv(**config['env'])
