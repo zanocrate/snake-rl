@@ -1,4 +1,4 @@
-N_EPISODES=1000
+N_EPISODES=5000
 save_name = 'CNN2_relative'
 # change model here
 from src.models.CNN2_relative import DQN
