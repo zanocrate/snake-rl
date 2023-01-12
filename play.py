@@ -2,7 +2,8 @@
 from src.models.CNN2_relative import DQN
 # choose model state dict file here
 MODEL_STATE_FILENAME = "CNN2_relative.pth"
-
+# set seed to None for random
+SEED = 567
 
 from src.env import SnakeEnv
 from src.coach import epsilon_greedy_policy_qnetwork
@@ -32,7 +33,7 @@ q_net.load_state_dict(q_net_state_dict)
 
 # run episode
 terminated = False
-observation, info = env.reset()
+observation, info = env.reset(SEED)
 
 while not terminated:
     
