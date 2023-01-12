@@ -1,4 +1,4 @@
-N_EPISODES=5000
+N_EPISODES=1000
 SEED=567 # set to None to randomize starts
 save_name = 'CNN2_relative'
 # change model here
