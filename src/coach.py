@@ -6,6 +6,7 @@ from src.env import SnakeEnv
 import numpy as np
 import torch
 import tqdm
+import os
 
 from copy import deepcopy
 from itertools import count
@@ -134,6 +135,10 @@ class Coach:
         episode_durations=np.empty(n_episodes,dtype=int)
         episode_returns=np.empty(n_episodes,dtype=float)
         for i_episode in tqdm.trange(n_episodes):
+            # if we delete the file loop_flag, the loop exits gracefully
+            if 'loop_flag' not in os.listdir(): 
+                print('loop_flag not found. Ending loop at episode ',i_episode)
+                break
             # play an episode, at every step optimize and update replay buffer, and returns the duration
             t,g=self.play_episode(seed=seed)
             episode_durations[i_episode]=t
