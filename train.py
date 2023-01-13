@@ -1,10 +1,10 @@
 N_EPISODES=20000
 SEED=702 # set to None to randomize starts
-FILENAME = 'CNN2_relative'
+FILENAME = 'NN_custom_features'
 MODEL_TYPE = 'relative'
 
 # change model class here
-from src.models.CNN2_relative import DQN
+from src.models.NN_custom_features import DQN
 
 from src.coach import * # also imports Coach class
 
