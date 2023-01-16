@@ -45,33 +45,6 @@ class SnakeEnv(gym.Env):
         self.observation_type = observation_type
         self.history_length = history_length
 
-        #   #   # initializing history attributes based on observation type and filling them with zeroes
-
-        # simple screen output
-        if self.observation_type == 1:
-            
-            # define history as a np matrix of size (history_len,width,height)
-            self.history = np.zeros((self.history_length,self.width,self.height),dtype=int)
-
-            # define the observation space
-            self.observation_space = spaces.Box(low=-1,high=1,shape=(self.width,self.height),dtype=int) 
-        
-        # both screen having numbered snake pieces and direction output
-        elif self.observation_type == 2:
-
-            # define history as dict of matrices
-            self.history = {
-                'screen' : np.zeros((self.history_length,self.width,self.height),dtype=int),
-                'direction' : np.zeros((self.history_length,4),dtype=int)
-            }
-            # define observation space as dictspace
-            self.observation_space = spaces.Dict(
-                {
-                    "screen" : spaces.Box(low=-1,high=width*height,shape=(width,height),dtype=int), # the snake can have at most length n x m
-                    "direction" : spaces.MultiDiscrete(2*np.ones(4)) # each possible direction the snake is moving
-                }
-            )
-
         # define action space
         if self.action_space_type == 'absolute':
             self.action_space = spaces.Discrete(4) # each of the 4 direction as input
@@ -140,16 +113,46 @@ class SnakeEnv(gym.Env):
         #       [x0,y0]]
         self._snake = self.np_random.integers((self.width,self.height),size=(1,2))
         self._current_direction = self._int_to_direction[self.np_random.integers(4)] # choose one of the four directions at random
-
+        
         # reset the counter for steps without food
         self._steps_no_food = 0
 
         # generate food somewhere
         self._spawn_food()
+        
+        #   #   # initializing history attributes based on observation type and filling them with zeroes
+
+        # simple screen output
+        if self.observation_type == 1:
+            
+            # define history as a np matrix of size (history_len,width,height)
+            self.history = np.zeros((self.history_length,self.width,self.height),dtype=int)
+
+            # define the observation space
+            self.observation_space = spaces.Box(low=-1,high=1,shape=(self.width,self.height),dtype=int) 
+        
+        # both screen having numbered snake pieces and direction output
+        elif self.observation_type == 2:
+
+            # define history as dict of matrices
+            self.history = {
+                'screen' : np.zeros((self.history_length,self.width,self.height),dtype=int),
+                'direction' : np.zeros((self.history_length,4),dtype=int)
+            }
+            # define observation space as dictspace
+            self.observation_space = spaces.Dict(
+                {
+                    "screen" : spaces.Box(low=-1,high=width*height,shape=(width,height),dtype=int), # the snake can have at most length n x m
+                    "direction" : spaces.MultiDiscrete(2*np.ones(4)) # each possible direction the snake is moving
+                }
+            )
 
         # generate observation and info
         observation = self._get_obs()
         info = self._get_info()
+        
+        # now perform k steps
+        raise NotImplementedError("Not yet implemented the k history rollback")
 
         if self.render_mode == "human":
             self._render_frame()
@@ -234,7 +237,7 @@ class SnakeEnv(gym.Env):
         """
         Return additional information on the state.
         """
-        return None
+        return self._int_to_direction[self._current_direction]
 
     def _check_snake_collision(self,coords):
         """
