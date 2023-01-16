@@ -92,7 +92,14 @@ class SnakeEnv(gym.Env):
     
     def reset(self, seed=None, options=None):
         """
-        Reset the environment.
+        Reset the environment. Also performs k initial random actions to fill the k initial frames, where k=self.history_length.
+        
+        Args
+        -------
+            seed : int, seed for the rng to reproduce initial state. 
+                        if the seed results in invalid initial moves, resets with random seed
+                        and raise 'reseeded' flag in episode info. 
+        
         Returns
         -------
         if self.observation_type == 1:
@@ -105,6 +112,11 @@ class SnakeEnv(gym.Env):
         # We need the following line to seed self.np_random
         # it is the default rng inherited from the gym.Env class
         super().reset(seed=seed)
+        # also set the seed for the action space
+        self.action_space.seed(seed)
+
+        # init to false
+        self.was_reseeded = False
 
         # Choose the agent's location uniformly at random
         # this will be an rray like [[x0,y0]]
@@ -142,7 +154,7 @@ class SnakeEnv(gym.Env):
             # define observation space as dictspace
             self.observation_space = spaces.Dict(
                 {
-                    "screen" : spaces.Box(low=-1,high=width*height,shape=(width,height),dtype=int), # the snake can have at most length n x m
+                    "screen" : spaces.Box(low=-1,high=self.width*self.height,shape=(self.width,self.height),dtype=int), # the snake can have at most length n x m
                     "direction" : spaces.MultiDiscrete(2*np.ones(4)) # each possible direction the snake is moving
                 }
             )
@@ -151,8 +163,14 @@ class SnakeEnv(gym.Env):
         observation = self._get_obs()
         info = self._get_info()
         
-        # now perform k steps
-        raise NotImplementedError("Not yet implemented the k history rollback")
+        # now perform additional k-1 random steps to fill the initial history
+        k=1
+        while k < self.history_length:
+            observation,reward,done,_=self.step(self.action_space.sample())
+            if done: # if we run into a wall, restart the reset method with random seed
+                self.was_reseeded = True
+                return self.reset()
+            else: k+=1
 
         if self.render_mode == "human":
             self._render_frame()
@@ -235,9 +253,17 @@ class SnakeEnv(gym.Env):
   
     def _get_info(self):
         """
-        Return additional information on the state.
+        Return additional information on the state. Info returned:
+        info['direction'] : (x,y) vector representing current direction
+        info['reseeded'] : bool, if the current episode has been reseeded at the reset phase
         """
-        return self._int_to_direction[self._current_direction]
+
+        info = {
+            "direction" : self._current_direction,
+            "reseeded" : self.was_reseeded
+        }
+
+        return info
 
     def _check_snake_collision(self,coords):
         """

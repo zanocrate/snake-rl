@@ -1,7 +1,6 @@
-N_EPISODES=20000
-SEED=702 # set to None to randomize starts
+N_EPISODES=100
+SEED=None # set to None to randomize starts
 FILENAME = 'NN_custom_features'
-MODEL_TYPE = 'relative'
 
 # change model class here
 from src.models.NN_custom_features import DQN
@@ -24,6 +23,7 @@ device = 'cpu'
 
 # initialize net to train from zero
 dqn = DQN(config['env']['history_length']).to(device)
+MODEL_TYPE = dqn.action_space_type
 
 # initialize coach instance with training and policy parameters
 coach = Coach(

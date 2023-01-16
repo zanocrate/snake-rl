@@ -13,8 +13,8 @@
     },
 
     "training" : {
-        "buffer_size" : 100000,
-        "batch_size" : 1024,
+        "buffer_size" : 8192,
+        "batch_size" : 128,
         "tau" : 0.1,
         "gamma" : 0.99,
         "epsilon" : 0.1,

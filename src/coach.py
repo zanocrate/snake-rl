@@ -27,7 +27,8 @@ class Coach:
         device='cpu'
     ):
 
-        self.replay_buffer = ReplayMemory(buffer_size)
+        state_shape = (env_kwargs['history_length'],env_kwargs['width'],env_kwargs['height'])
+        self.replay_buffer = ReplayMemory(buffer_size,state_shape)
         self.batch_size = batch_size
         self.env = SnakeEnv(
             **env_kwargs
@@ -53,10 +54,13 @@ class Coach:
 
     def optimize_model(self):
         if self.replay_buffer.__len__() < self.batch_size:
+            # print('Skipping optimization. Replay buffer samples:')
+            # print(self.replay_buffer.__len__())
             # do not optimize if we do not have enough samples
             return
 
-
+        # print('Optimizing. Replay buffer samples:')
+        # print(self.replay_buffer.__len__())
         data_loader = DataLoader(self.replay_buffer,self.batch_size,shuffle=True)
         batch=next(iter(data_loader))
         
@@ -87,7 +91,7 @@ class Coach:
         # Compute the expected Q values
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
 
-        # Compute Huber loss
+        # Compute loss
         criterion = torch.nn.MSELoss()
         loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
 
@@ -109,6 +113,7 @@ class Coach:
             action = epsilon_greedy_policy_qnetwork(state,epsilon=self.epsilon,net=self.policy_net)
             next_state, reward, done, _ = self.env.step(action)
 
+            print("Step: {}, action: {}, reward: {}".format(t,action,reward),end='\r')
             total_return+=reward
 
             # Store the transition in memory
@@ -131,9 +136,15 @@ class Coach:
                 return (t+1,total_return) # return number of steps of the episode
 
 
-    def train(self,n_episodes,seed=None):
+    def train(self,n_episodes,seed=None,save_buffer=True,load_buffer=False):
+        
+        # load saved samples
+        if load_buffer: self.replay_buffer.load('./data/replaybuffer/')
+        
+        # init training metrics
         episode_durations=np.empty(n_episodes,dtype=int)
         episode_returns=np.empty(n_episodes,dtype=float)
+
         for i_episode in tqdm.trange(n_episodes):
             
             # if we delete the file loop_flag, the loop exits gracefully
@@ -148,6 +159,9 @@ class Coach:
             if t > self.best_performance:
                 self.best_performance = t
                 self.best_performance_net = deepcopy(self.policy_net)
+
+        if save_buffer: self.replay_buffer.save('./data/replaybuffer/')
+
         return episode_durations,episode_returns
 
 

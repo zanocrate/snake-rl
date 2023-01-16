@@ -10,6 +10,9 @@ class DQN(nn.Module):
     """
     Class for the Neural Network of the Q value function.
     """
+
+    action_space_type='absolute'
+
     def __init__(self,history_length):
         super(DQN, self).__init__()
 
