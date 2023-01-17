@@ -150,6 +150,7 @@ class Coach:
             # if we delete the file loop_flag, the loop exits gracefully
             if 'loop_flag' not in os.listdir(): 
                 print('loop_flag not found. Ending loop at episode ',i_episode)
+                if save_buffer: self.replay_buffer.save('./data/replaybuffer/')
                 return episode_durations[:i_episode],episode_returns[:i_episode]
             
             # play an episode, at every step optimize and update replay buffer, and returns the duration

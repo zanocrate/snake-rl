@@ -1,4 +1,4 @@
-N_EPISODES=100
+N_EPISODES=5000
 SEED=None # set to None to randomize starts
 FILENAME = 'NN_custom_features'
 
