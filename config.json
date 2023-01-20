@@ -4,23 +4,24 @@
         "height" : 15,
         "history_length" : 3,
         "periodic" : false,
-        "food_reward" : 10,
+        "food_reward" : 1000,
         "step_penalty" : -1,
-        "terminated_penalty" : -10,
+        "terminated_penalty" : -1000,
         "max_steps" : 500,
         "observation_type" : 1,
         "action_space_type" : "relative"
     },
 
     "training" : {
-        "buffer_size" : 8192,
-        "batch_size" : 128,
-        "tau" : 0.1,
+        "seed" : 285,
+        "buffer_size" : 12000,
+        "batch_size" : 512,
+        "tau" : 0.5,
         "gamma" : 0.99,
         "epsilon" : 0.1,
         "n_episodes" : 500,
         "optimizer" : {
-            "lr" : 0.01
+            "lr" : 0.1
         }
     }
 }

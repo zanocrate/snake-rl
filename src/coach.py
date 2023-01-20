@@ -103,38 +103,6 @@ class Coach:
         self.optimizer.step()
 
 
-    def play_episode(self,seed=None):
-        """
-        Plays and episode, updating the model at every step. If given a seed, will reset every episode to the given seed.
-        """
-        total_return = 0
-        state,_ = self.env.reset(seed)
-        for t in count():
-            action = epsilon_greedy_policy_qnetwork(state,epsilon=self.epsilon,net=self.policy_net)
-            next_state, reward, done, _ = self.env.step(action)
-
-            print("Step: {}, action: {}, reward: {}".format(t,action,reward),end='\r')
-            total_return+=reward
-
-            # Store the transition in memory
-            self.replay_buffer._add_sample(state,action,reward,next_state,done)
-
-            # Move to the next state
-            state = next_state
-
-            # Perform one step of the optimization (on the policy network)
-            self.optimize_model()
-
-            # Soft update of the target network's weights
-            # θ′ ← τ θ + (1 −τ )θ′
-            target_net_state_dict = self.target_net.state_dict()
-            policy_net_state_dict = self.policy_net.state_dict()
-            for key in policy_net_state_dict:
-                target_net_state_dict[key] = policy_net_state_dict[key]*self.tau + target_net_state_dict[key]*(1-self.tau)
-            self.target_net.load_state_dict(target_net_state_dict)
-            if done:
-                return (t+1,total_return) # return number of steps of the episode
-
 
     def train(self,n_episodes,seed=None,save_buffer=True,load_buffer=False):
         
@@ -144,8 +112,11 @@ class Coach:
         # init training metrics
         episode_durations=np.empty(n_episodes,dtype=int)
         episode_returns=np.empty(n_episodes,dtype=float)
+        
+        # progress bar iterable
+        pbar = tqdm.tqdm(range(n_episodes))
 
-        for i_episode in tqdm.trange(n_episodes):
+        for i_episode in pbar:
             
             # if we delete the file loop_flag, the loop exits gracefully
             if 'loop_flag' not in os.listdir(): 
@@ -153,10 +124,42 @@ class Coach:
                 if save_buffer: self.replay_buffer.save('./data/replaybuffer/')
                 return episode_durations[:i_episode],episode_returns[:i_episode]
             
-            # play an episode, at every step optimize and update replay buffer, and returns the duration
-            t,g=self.play_episode(seed=seed)
-            episode_durations[i_episode]=t
-            episode_returns[i_episode]=g
+            # play the episode
+            total_return = 0
+            state,_ = self.env.reset(seed)
+            for t in count():
+                action = epsilon_greedy_policy_qnetwork(state,epsilon=self.epsilon,net=self.policy_net)
+                next_state, reward, done, _ = self.env.step(action)
+
+                total_return+=reward
+                
+                # update stats of pbar
+                pbar.set_description(f"Step: {t} | Action: {action} | Reward: {reward}")
+
+                # Store the transition in memory
+                self.replay_buffer._add_sample(state,action,reward,next_state,done)
+
+                # Move to the next state
+                state = next_state
+
+                # Perform one step of the optimization (on the policy network)
+                self.optimize_model()
+
+                # Soft update of the target network's weights
+                # θ′ ← τ θ + (1 −τ )θ′
+                target_net_state_dict = self.target_net.state_dict()
+                policy_net_state_dict = self.policy_net.state_dict()
+                for key in policy_net_state_dict:
+                    target_net_state_dict[key] = policy_net_state_dict[key]*self.tau + target_net_state_dict[key]*(1-self.tau)
+                self.target_net.load_state_dict(target_net_state_dict)
+                
+                if done:
+                    episode_durations[i_episode]=t
+                    episode_returns[i_episode]=total_return
+                    break
+                
+            
+            
             if t > self.best_performance:
                 self.best_performance = t
                 self.best_performance_net = deepcopy(self.policy_net)

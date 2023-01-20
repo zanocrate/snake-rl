@@ -1,5 +1,3 @@
-N_EPISODES=5000
-SEED=None # set to None to randomize starts
 FILENAME = 'NN_custom_features'
 
 # change model class here
@@ -39,7 +37,7 @@ coach = Coach(
 )
 
 # run the loop
-durations,returns = coach.train(N_EPISODES,SEED)
+durations,returns = coach.train(config['training']['n_episodes'],config['training']['seed'])
 
 # save resultsx
 torch.save(dqn.state_dict(), 'trained_models/'+FILENAME+'.pth')

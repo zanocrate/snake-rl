@@ -28,10 +28,10 @@ class DQN(nn.Module):
         
         assert history_length >= 3, f"history_length >= 3 required, got: {history_length}"
         
-        # to hidden layer of 20 neurons
+        # to hidden layer of 10 neurons
         self.layer1 = nn.Linear(
             5,
-            20
+            10
         )
         
         # non linear activation
@@ -39,7 +39,7 @@ class DQN(nn.Module):
         
         # final layer
         self.output_layer= nn.Linear(
-            20,
+            10,
             3
         )
     
