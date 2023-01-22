@@ -30,18 +30,9 @@ class DQN(nn.Module):
         
         
 
-
-        # a single feed forward layer
-        self.ffl1 = nn.Linear(
-            60*5*5,
-            10
-        )
-
-        self.ffl_activation1 = nn.ReLU()
-
         # final layer
         self.output_layer= nn.Linear(
-            10,
+            60*5*5,
             3
         )
 
@@ -52,7 +43,6 @@ class DQN(nn.Module):
 
         x = torch.Tensor(x)
         x = self.activation1(self.conv1(x))
-        x = self.ffl_activation1(self.ffl1(x.flatten(start_dim=1))) # do not drop the batch dimension
-        x = self.output_layer(x)
+        x = self.output_layer(x.flatten(start_dim=1))
 
         return x

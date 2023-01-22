@@ -1,7 +1,7 @@
 # choose model here
-from src.models.CNN2_relative import DQN
+from src.models.NN_custom_features import DQN
 # choose model state dict file here
-MODEL_STATE_FILENAME = "CNN2_relative.pth"
+MODEL_STATE_FILENAME = "NN_custom_features.pth"
 # set seed to None for random
 SEED = 567
 

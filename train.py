@@ -1,10 +1,11 @@
-FILENAME = 'NN_custom_features'
+FILENAME = 'CNN2_relative'
+
+LOAD_MODEL = True
 
 # change model class here
-from src.models.NN_custom_features import DQN
+from src.models.CNN2_relative import DQN
 
 from src.coach import * # also imports Coach class
-
 import torch
 import json
 import os
@@ -19,9 +20,13 @@ with open('config.json') as f:
 # choose device here
 device = 'cpu'
 
+MODEL_PATH = 'trained_models/'+FILENAME+'.pth'
+
 # initialize net to train from zero
 dqn = DQN(config['env']['history_length']).to(device)
 MODEL_TYPE = dqn.action_space_type
+
+if LOAD_MODEL: dqn.load_state_dict(torch.load(MODEL_PATH))
 
 # initialize coach instance with training and policy parameters
 coach = Coach(
@@ -40,6 +45,6 @@ coach = Coach(
 durations,returns = coach.train(config['training']['n_episodes'],config['training']['seed'])
 
 # save resultsx
-torch.save(dqn.state_dict(), 'trained_models/'+FILENAME+'.pth')
+torch.save(dqn.state_dict(), MODEL_PATH)
 np.save('data/'+MODEL_TYPE+'/'+FILENAME+'.durations.npy',durations)
 np.save('data/'+MODEL_TYPE+'/'+FILENAME+'.returns.npy',returns)
