@@ -73,13 +73,9 @@ class DQN(nn.Module):
         x = torch.Tensor(x)
         # padding walls with one?
         x = torch.nn.functional.pad(x,(1,1,1,1),value=1)
-        print(x.shape)
         x = self.pool1(self.relu(self.conv1(x)))
-        print(x.shape)
         x = self.relu(self.conv2(x))
-        print(x.shape)
         x = self.relu(self.fc(x.flatten(start_dim=1)))
-        print(x.shape)
         x = self.output_layer(x)
 
         return x

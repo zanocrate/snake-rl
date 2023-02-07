@@ -230,7 +230,7 @@ if __name__ == '__main__':
                 ),
         # tune configurations
         tune_config=tune.TuneConfig(
-            metric="episode_g",
+            metric="episode_G",
             mode="max",
             num_samples=num_samples,
             # max_concurrent_trials=8 # maybe this is the number of processes it spawns?
@@ -242,12 +242,7 @@ if __name__ == '__main__':
 
     best_result = results.get_best_result("val_loss", "min")
 
-    print("Best trial config: {}".format(best_result.config))
-    print("Best trial final validation loss: {}".format(
-        best_result.metrics["loss"]))
-    print("Best trial final validation accuracy: {}".format(
-        best_result.metrics["accuracy"]))
-
+   
     # save results
 
     df = results.get_dataframe()
