@@ -9,6 +9,7 @@ class SnakeEnv(gym.Env):
     metadata = {
         'render_modes' : ['human'],
         'action_space_types' : ['absolute','relative'],
+        'observation_types' : ['screen','full'],
         'render_fps' : 4
     }
 
@@ -23,7 +24,7 @@ class SnakeEnv(gym.Env):
         step_penalty = 0,
         max_steps=100, # maximum number of steps before terminated
         action_space_type = 'absolute',
-        observation_type=1,
+        observation_type='screen',
         history_length=1):
 
         # game settings
@@ -42,6 +43,7 @@ class SnakeEnv(gym.Env):
         self.action_space_type = action_space_type
 
         # observation settings
+        assert observation_type in self.metadata["observation_types"]
         self.observation_type = observation_type
         self.history_length = history_length
 
@@ -56,13 +58,27 @@ class SnakeEnv(gym.Env):
                 2 : np.array([[0,1],[-1,0]]) # rotate 90 degrees CW
             }
 
+        if self.observation_type == 'screen':
+
+            # define history as a np matrix of size (history_len,width,height)
+            self.history = np.zeros((self.history_length,self.width,self.height),dtype=int)
+            # define the observation space
+            self.observation_space = spaces.Box(low=-1,high=1,shape=(self.width,self.height),dtype=int) 
+        
+        elif self.observation_type == 'full':
+
+            # define history as a np matrix of size (history_len,width,height)
+            self.history = np.zeros((self.history_length,self.width,self.height),dtype=int)
+            # define the observation space
+            self.observation_space = spaces.Box(low=-1,high=self.width*self.height,shape=(self.width,self.height),dtype=int)
+
 
         # look up tables for the action index
         self._int_to_direction = {
-            0 : np.array([0,1]), # UP
-            1 : np.array([0,-1]), # DOWN
-            2 : np.array([1,0]), # RIGHT
-            3 : np.array([-1,0]) # LEFT
+            0 : np.array([0,1]), 
+            1 : np.array([1,0]), 
+            2 : np.array([0,-1]), 
+            3 : np.array([-1,0]) 
         }
 
         self._direction_to_onehot = {
@@ -73,7 +89,7 @@ class SnakeEnv(gym.Env):
         }
 
         # set render mode
-        assert render_mode is None or render_mode in self.metadata["render_modes"]
+        assert render_mode is None or render_mode in self.metadata["render_modes"], "No render_mode found for {}".format(render_mode)
         self.render_mode = render_mode
 
         """
@@ -118,6 +134,9 @@ class SnakeEnv(gym.Env):
         # init to false
         self.was_reseeded = False
 
+        # fill frames history with zeros; they will be drawn in the _get_obs() method
+        self.history.fill(0)
+
         # Choose the agent's location uniformly at random
         # this will be an rray like [[x0,y0]]
         # then whenever we eat an apple the list will append along the 0 axis
@@ -131,35 +150,8 @@ class SnakeEnv(gym.Env):
 
         # generate food somewhere
         self._spawn_food()
-        
-        #   #   # initializing history attributes based on observation type and filling them with zeroes
 
-        # simple screen output
-        if self.observation_type == 1:
-            
-            # define history as a np matrix of size (history_len,width,height)
-            self.history = np.zeros((self.history_length,self.width,self.height),dtype=int)
-
-            # define the observation space
-            self.observation_space = spaces.Box(low=-1,high=1,shape=(self.width,self.height),dtype=int) 
-        
-        # both screen having numbered snake pieces and direction output
-        elif self.observation_type == 2:
-
-            # define history as dict of matrices
-            self.history = {
-                'screen' : np.zeros((self.history_length,self.width,self.height),dtype=int),
-                'direction' : np.zeros((self.history_length,4),dtype=int)
-            }
-            # define observation space as dictspace
-            self.observation_space = spaces.Dict(
-                {
-                    "screen" : spaces.Box(low=-1,high=self.width*self.height,shape=(self.width,self.height),dtype=int), # the snake can have at most length n x m
-                    "direction" : spaces.MultiDiscrete(2*np.ones(4)) # each possible direction the snake is moving
-                }
-            )
-
-        # generate observation and info
+        # generate observation and info; this will also draw frames on the history frame
         observation = self._get_obs()
         info = self._get_info()
         
@@ -189,7 +181,7 @@ class SnakeEnv(gym.Env):
                                 observation['direction'] is a (history_length,4) numpy matrix representing the direction
         """
 
-        if self.observation_type==1:
+        if self.observation_type=='screen':
             
             # roll the matrix: the last element becomes the first
             self.history = np.roll(self.history,1,0)
@@ -206,23 +198,21 @@ class SnakeEnv(gym.Env):
             return self.history
             
         
-        elif self.observation_type==2:
+        elif self.observation_type=='full':
             
-            # roll both arrays of history dict
-            self.history['screen'] = np.roll(self.history['screen'],1,0)
-            self.history['direction'] = np.roll(self.history['direction'],1,0)
-
-            # blank canvas
-            self.history['screen'][0].fill(0)
-            self.history['direction'][0].fill(0)
+            # roll the matrix: the last element becomes the first
+            self.history = np.roll(self.history,1,0)
+            
+            # blank canvas 
+            self.history[0].fill(0)
             # draw food
-            self.history['screen'][0][tuple(self._food)] = -1
+            self.history[0][tuple(self._food)] = -1
 
             # draw snake
             if self._snake.size != 0:
-                for i,coord in enumerate(self._snake[::-1]): self.history['screen'][tuple(coord)] = 1+i # growing numbers for other pieces of the snake
-            
-            self.history['direction'] = self._direction_to_onehot[self._current_direction]
+                # enumerate in reverse because the last entry is the head
+                for i,coord in enumerate(self._snake[::-1]): self.history[0][tuple(coord)] = 1+i
+
             return self.history
         
     def _get_new_head_position(self,action):

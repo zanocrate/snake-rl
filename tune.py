@@ -167,15 +167,17 @@ def train_loop_per_worker(
                 # Here we save a checkpoint. It is automatically registered with
                 # Ray Tune and can be accessed through `session.get_checkpoint()`
                 # API in future iterations.
-                os.makedirs("dqn", exist_ok=True)
-                torch.save(
-                    (model.state_dict(), optimizer.state_dict()), "dqn/checkpoint.pt")
-                checkpoint = Checkpoint.from_directory("dqn")
+                # os.makedirs("dqn", exist_ok=True)
+                # torch.save((policy_net.state_dict(), optimizer.state_dict()), "dqn/checkpoint.pt")
+                # checkpoint = Checkpoint.from_directory("dqn")
                 session.report({"episode_T": t,
                             "episode_G": total_return}
-                            , checkpoint=checkpoint)
+                            # , checkpoint=checkpoint
+                            )
                 
                 break
+
+    print("Done training")
 
 
 
@@ -189,15 +191,15 @@ if __name__ == '__main__':
     ray.init('localhost:6379')
     
     # number of trials i guess
-    num_samples = 20
+    num_samples = 16
 
     # hyperparameters space
     config = {
-                "batch_size": tune.choice([8, 16, 32, 128,256, 512]),
-                "lr": tune.loguniform(1e-5, 1e-1),
-                "gamma": tune.uniform(0.01,0.99),
-                "tau": tune.uniform(0,1),
-                "epsilon" : tune.uniform(0.01,0.2)
+                "batch_size": tune.choice([256, 512,1024]),
+                "lr": tune.loguniform(1e-5, 1e-3),
+                "gamma": tune.uniform(0.5,0.75),
+                "tau": tune.uniform(0,0.3),
+                "epsilon" : tune.uniform(0.1,0.2)
             }
 
     # scheduler = ASHAScheduler(
@@ -224,9 +226,10 @@ if __name__ == '__main__':
             # parameters to pass to the training loop
             env_kwargs=env_kwargs,
             load_buffer_path=None,
-            n_episodes=1000,
+            n_episodes=50000,
             seed=None,
-            model=model
+            model=model,
+            buffer_size = 12000
                 ),
         # tune configurations
         tune_config=tune.TuneConfig(
@@ -235,17 +238,25 @@ if __name__ == '__main__':
             num_samples=num_samples,
             # max_concurrent_trials=8 # maybe this is the number of processes it spawns?
         ),
+        # run configuration; we disable sync because NFS
+        run_config=ray.air.RunConfig(
+        name="RL_snake_more",
+        local_dir="/dataNfs/snake/",
+        sync_config=tune.SyncConfig(
+            syncer=None  # Disable syncing
+        )),
+        # search space
         param_space=config,
     )
 
     results = tuner.fit()
 
-    best_result = results.get_best_result("val_loss", "min")
+    # best_result = results.get_best_result("val_loss", "min")
 
    
     # save results
 
     df = results.get_dataframe()
 
-    df.to_csv('/home/ubuntu/nndlproject/ray_results.csv')
+    df.to_csv('/home/ubuntu/snake-rl/ray_results.csv')
 

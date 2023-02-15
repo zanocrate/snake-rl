@@ -1,50 +1,175 @@
-FILENAME = 'CNN2_relative'
-
-LOAD_MODEL = True
-
-# change model class here
+from src.env import SnakeEnv
+from src.replaymemory import *
 from src.models.CNN2_relative import DQN
 
-from src.coach import * # also imports Coach class
-import torch
-import json
+from copy import deepcopy
+from itertools import count
 import os
 
-# create loop flag
-os.close(os.open("loop_flag", os.O_CREAT))
+from tqdm import trange
 
-# load configs
+import torch
+from torch.optim import Adam
+from torch.utils.data import DataLoader
+
+
+import json
+
 with open('config.json') as f:
-    config = json.load(f)
+    env_kwargs = json.load(f)['env']
 
-# choose device here
-device = 'cpu'
 
-MODEL_PATH = 'trained_models/'+FILENAME+'.pth'
+config = {
+    'lr' : 0.0001,
+    'epsilon' : 0.1,
+    'batch_size' : 512,
+    'gamma' : 0.5,
+    'tau' : 0.15
 
-# initialize net to train from zero
-dqn = DQN(config['env']['history_length']).to(device)
-MODEL_TYPE = dqn.action_space_type
+}
 
-if LOAD_MODEL: dqn.load_state_dict(torch.load(MODEL_PATH))
+n_episodes = 10_000
+buffer_size = 10_000_000
+load_buffer_path = None
+seed = None
+run_name = 'test_run'
+augment_dataset = True
 
-# initialize coach instance with training and policy parameters
-coach = Coach(
-    net=dqn,
-    env_kwargs=config['env'],
-    epsilon=config['training']['epsilon'],
-    tau=config['training']['tau'],
-    gamma=config['training']['gamma'],
-    optimizer_kwargs=config['training']['optimizer'],
-    buffer_size=config['training']['buffer_size'],
-    batch_size=config['training']['batch_size'],
-    device=device
-)
+# threshold for gradient clipping
+max_norm = 100
 
-# run the loop
-durations,returns = coach.train(config['training']['n_episodes'],config['training']['seed'])
+# env init
+env = SnakeEnv(**env_kwargs)
 
-# save resultsx
-torch.save(dqn.state_dict(), MODEL_PATH)
-np.save('data/'+MODEL_TYPE+'/'+FILENAME+'.durations.npy',durations)
-np.save('data/'+MODEL_TYPE+'/'+FILENAME+'.returns.npy',returns)
+state_shape = (env_kwargs['history_length'],env_kwargs['width'],env_kwargs['height'])
+replay_buffer = ReplayMemory(buffer_size,state_shape,env_kwargs['action_space_type'],augment_dataset)
+if load_buffer_path is not None: replay_buffer.load(load_buffer_path)
+
+
+# initialize Net
+model = DQN(state_shape)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+policy_net = deepcopy(model)
+target_net = deepcopy(model)
+
+# optimizer
+optimizer = Adam(policy_net.parameters(), lr = config['lr'])
+
+episode_T = np.empty(n_episodes)
+episode_G = np.empty(n_episodes)
+
+############################################################ EPISODES LOOP
+
+for i_episode in trange(n_episodes):
+    
+    # play the episode
+    total_return = 0
+    state,_ = env.reset(seed)
+
+    for t in count():
+
+        #################################################### EPSILON GREEDY POLICY
+
+        n_actions = policy_net.output_layer.out_features 
+        if np.random.rand() < config['epsilon']:
+            action = np.random.randint(n_actions)
+        else:
+            with torch.no_grad(): # disable gradient calculations. useful when doing inference to skip computation
+                # find the maximum over the action dim for each batch sample
+                # but batch_size is one in inference so expand dims
+                q = policy_net(np.expand_dims(state,axis=0)) # q is shaped like (1,n_actions)
+                action = q.argmax(1).item() # get the argmax along the actions axis
+
+    
+        next_state, reward, done, _ = env.step(action)
+
+        total_return+=reward
+        
+        # Store the transition in memory
+        replay_buffer._add_sample(state,action,reward,next_state,done)
+
+        # Move to the next state
+        state = next_state
+
+        #################################################### TRAINING
+        
+        # only if we have enough samples
+        if replay_buffer.__len__() >= config['batch_size']:
+
+            data_loader = DataLoader(replay_buffer,config['batch_size'],shuffle=True)
+            
+            # batch is a dict of tensors for s,a,r,s2,terminal
+            batch=next(iter(data_loader))
+
+            # Compute a mask of non-final states and concatenate the batch elements
+            # (a final state would've been the one after which simulation ended)
+            non_final_mask = torch.logical_not(batch['terminal']).to(device)
+            non_final_next_states = batch['s2'][non_final_mask].to(device)
+            state_batch = batch['s'].to(device)
+            action_batch = batch['a'].to(device)
+            reward_batch = batch['r'].to(device)
+
+            # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
+            # columns of actions taken. These are the actions which would've been taken
+            # for each batch state according to policy_net
+            state_action_values = policy_net(state_batch.numpy()).gather(1,action_batch[:,None])
+
+            # Compute V(s_{t+1}) for all next states.
+            # Expected values of actions for non_final_next_states are computed based
+            # on the "older" target_net; selecting their best reward with max(1)[0].
+            # This is merged based on the mask, such that we'll have either the expected
+            # state value or 0 in case the state was final.
+            next_state_values = torch.zeros(config['batch_size'], device=device)
+            with torch.no_grad():
+                # compute
+                next_state_values[non_final_mask] = target_net(non_final_next_states.numpy()).max(1)[0]
+            # Compute the expected Q values
+            expected_state_action_values = (next_state_values * config['gamma']) + reward_batch
+
+            # Compute loss
+            criterion = torch.nn.MSELoss()
+            loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+
+            # Optimize the model
+            optimizer.zero_grad()
+            loss.backward()
+            # In-place gradient clipping
+            torch.nn.utils.clip_grad_value_(policy_net.parameters(), max_norm)
+            optimizer.step()
+
+
+        #################################################### UPDATE Q_i -> Q_(i-1)
+
+        # Soft update of the target network's weights
+        # θ′ ← τ θ + (1 −τ )θ′
+        target_net_state_dict = target_net.state_dict()
+        policy_net_state_dict = policy_net.state_dict()
+        for key in policy_net_state_dict:
+            target_net_state_dict[key] = policy_net_state_dict[key]*config['tau'] + target_net_state_dict[key]*(1-config['tau'])
+        target_net.load_state_dict(target_net_state_dict)
+        
+        #################################################### SAVE METRICS
+
+        if done:
+    
+            episode_T[i_episode] = t
+            episode_G[i_episode] = total_return
+            
+            break
+
+# save T,G, model
+run_path = os.path.join('/home/ubuntu/snake-rl/runs',run_name)
+os.makedirs(run_path, exist_ok=True)
+
+np.save(os.path.join(run_path,'G.npy'),episode_G)
+np.save(os.path.join(run_path,'T.npy'),episode_T)
+
+
+torch.save(model.state_dict(), os.path.join(run_path,'model.pth'))
+
+with open(os.path.join(run_path,'params.json'), 'w') as outfile:
+    json.dump(config,outfile,indent=6)
+
+print("Done training")
+
+
