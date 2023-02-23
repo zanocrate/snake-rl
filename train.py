@@ -5,6 +5,7 @@ from src.models.CNN2_relative import DQN
 from copy import deepcopy
 from itertools import count
 import os
+import json
 
 from tqdm import trange
 
@@ -12,31 +13,35 @@ import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
+from torch.utils.tensorboard import SummaryWriter
 
-import json
+################### LOGGING
+
+tb_runs_dir = '/home/ubuntu/snake-rl/runs/'
+run_name = 'test_new_CNN_lower_r'
+run_path = os.path.join(tb_runs_dir,run_name)
+writer = SummaryWriter(run_path)
+
+################### CONFIGS
 
 with open('config.json') as f:
-    env_kwargs = json.load(f)['env']
+    json_f = json.load(f)
+    env_kwargs = json_f['env']
+    config = json_f['training']
 
-
-config = {
-    'lr' : 0.0001,
-    'epsilon' : 0.1,
-    'batch_size' : 512,
-    'gamma' : 0.5,
-    'tau' : 0.15
-
-}
-
-n_episodes = 10_000
-buffer_size = 10_000_000
 load_buffer_path = None
-seed = None
-run_name = 'test_run'
-augment_dataset = True
+
+augment_dataset = config['augment_dataset']
+n_episodes = config['n_episodes']
+buffer_size = config['buffer_size']
+seed = config['seed']
 
 # threshold for gradient clipping
 max_norm = 100
+
+epsilons = np.linspace(0.2,0.01,n_episodes)
+
+################### TRAINING
 
 # env init
 env = SnakeEnv(**env_kwargs)
@@ -55,9 +60,6 @@ target_net = deepcopy(model)
 # optimizer
 optimizer = Adam(policy_net.parameters(), lr = config['lr'])
 
-episode_T = np.empty(n_episodes)
-episode_G = np.empty(n_episodes)
-
 ############################################################ EPISODES LOOP
 
 for i_episode in trange(n_episodes):
@@ -71,7 +73,7 @@ for i_episode in trange(n_episodes):
         #################################################### EPSILON GREEDY POLICY
 
         n_actions = policy_net.output_layer.out_features 
-        if np.random.rand() < config['epsilon']:
+        if np.random.rand() < epsilons[i_episode]:
             action = np.random.randint(n_actions)
         else:
             with torch.no_grad(): # disable gradient calculations. useful when doing inference to skip computation
@@ -151,22 +153,18 @@ for i_episode in trange(n_episodes):
         #################################################### SAVE METRICS
 
         if done:
-    
-            episode_T[i_episode] = t
-            episode_G[i_episode] = total_return
+            
+            writer.add_scalar("T",t, i_episode)
+            writer.add_scalar("G",total_return, i_episode)
+            writer.add_scalar("epsilon",epsilons[i_episode],i_episode)
             
             break
 
-# save T,G, model
-run_path = os.path.join('/home/ubuntu/snake-rl/runs',run_name)
+# save model
+
+writer.close()
 os.makedirs(run_path, exist_ok=True)
-
-np.save(os.path.join(run_path,'G.npy'),episode_G)
-np.save(os.path.join(run_path,'T.npy'),episode_T)
-
-
 torch.save(model.state_dict(), os.path.join(run_path,'model.pth'))
-
 with open(os.path.join(run_path,'params.json'), 'w') as outfile:
     json.dump(config,outfile,indent=6)
 

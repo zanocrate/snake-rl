@@ -1,27 +1,26 @@
 {
     "env" : {
-        "width" : 10,
-        "height" : 10,
-        "history_length" : 2,
+        "width" : 16,
+        "height" : 16,
+        "history_length" : 3,
         "periodic" : false,
-        "food_reward" : 1000,
-        "step_penalty" : -1,
-        "terminated_penalty" : -1000,
+        "food_reward" : 1,
+        "step_penalty" : -0.001,
+        "terminated_penalty" : -1,
         "max_steps" : 500,
         "observation_type" : "full",
         "action_space_type" : "relative"
     },
 
     "training" : {
-        "seed" : 351,
-        "buffer_size" : 100000,
-        "batch_size" : 512,
-        "tau" : 0.2,
-        "gamma" : 0.99,
-        "epsilon" : 0.3,
+        "seed" : null,
+        "buffer_size" : 262144,
+        "batch_size" : 64,
+        "tau" : 0.1,
+        "gamma" : 0.9,
+        "epsilon" : 0.1,
         "n_episodes" : 5000,
-        "optimizer" : {
-            "lr" : 0.1
-        }
+        "augment_dataset" : true,
+        "lr" : 0.0001
     }
 }

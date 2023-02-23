@@ -23,14 +23,14 @@ class DQN(nn.Module):
             raise ValueError('Width and height of input board must be divisible by two.')
 
         # the number of output features from the convolutions
-        out_features = int( ((width-2)/2)*((height-2)/2) )
+        out_features = int(     (width-4)*(height-4)        )
 
         
-        # should result in 30 (width-2)x(height-2) matrices
+        # should result in 32 (width-2)x(height-2) planes
 
         self.conv1 = nn.Conv2d(
             in_channels=history_length, 
-            out_channels=16, 
+            out_channels=32, 
             kernel_size=3,
             padding='valid'
         )
@@ -38,30 +38,18 @@ class DQN(nn.Module):
         # non linear activation
         self.relu = nn.ReLU()
 
-        # pooling
-        # should return 30 (width-2)/2 x (height-2)/2 matrices
-        self.pool1 = nn.MaxPool2d(
-            kernel_size=2, # 2 by two pooling
-        )
-
-        # returns 32 [(width-2)/2 - 1]x[(height-2)/2 - 1]
+        # returns 64 [(width-2) - 2]x[(height-2) - 2] planes
         self.conv2 = nn.Conv2d(
-            in_channels=16,
-            out_channels=32,
-            kernel_size=2,
+            in_channels=32,
+            out_channels=64,
+            kernel_size=3,
             padding='valid'
         )
         
-        # fc layer
-        self.fc = nn.Linear(
-            32*out_features,
-            10
-        )
-
         
         # final layer
         self.output_layer= nn.Linear(
-            10,
+            64*out_features,
             3
         )
 
@@ -72,10 +60,10 @@ class DQN(nn.Module):
 
         x = torch.Tensor(x)
         # padding walls with one?
-        x = torch.nn.functional.pad(x,(1,1,1,1),value=1)
-        x = self.pool1(self.relu(self.conv1(x)))
+        # x = torch.nn.functional.pad(x,(1,1,1,1),value=1)
+        # x = self.pool1(self.relu(self.conv1(x)))
+        x = self.relu(self.conv1(x))
         x = self.relu(self.conv2(x))
-        x = self.relu(self.fc(x.flatten(start_dim=1)))
-        x = self.output_layer(x)
+        x = self.output_layer(x.flatten(start_dim=1))
 
         return x
