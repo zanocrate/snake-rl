@@ -1,6 +1,5 @@
 from src.env import SnakeEnv
 from src.replaymemory import *
-from src.models.CNN2_relative import DQN
 
 from copy import deepcopy
 from itertools import count
@@ -15,19 +14,20 @@ from torch.utils.data import DataLoader
 
 from torch.utils.tensorboard import SummaryWriter
 
-################### LOGGING
-
-tb_runs_dir = '/home/ubuntu/snake-rl/runs/'
-run_name = 'test_new_CNN_lower_r'
-run_path = os.path.join(tb_runs_dir,run_name)
-writer = SummaryWriter(run_path)
-
-################### CONFIGS
-
 with open('config.json') as f:
     json_f = json.load(f)
     env_kwargs = json_f['env']
     config = json_f['training']
+
+################### LOGGING
+
+tb_runs_dir = '/dataNfs/snake/runs/'
+run_path = os.path.join(tb_runs_dir,config['run_name'])
+writer = SummaryWriter(run_path)
+
+################### CONFIGS
+
+from src.model import DQN
 
 load_buffer_path = None
 
@@ -36,10 +36,13 @@ n_episodes = config['n_episodes']
 buffer_size = config['buffer_size']
 seed = config['seed']
 
+epsilon_start,epsilon_end = config['epsilon'] # is a list of two epsilons
+epsilons = np.linspace(epsilon_start,epsilon_end,n_episodes)
+
+
 # threshold for gradient clipping
 max_norm = 100
 
-epsilons = np.linspace(0.2,0.01,n_episodes)
 
 ################### TRAINING
 
@@ -52,7 +55,7 @@ if load_buffer_path is not None: replay_buffer.load(load_buffer_path)
 
 
 # initialize Net
-model = DQN(state_shape)
+model = DQN(state_shape,env_kwargs['action_space_type'])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 policy_net = deepcopy(model)
 target_net = deepcopy(model)
@@ -63,10 +66,15 @@ optimizer = Adam(policy_net.parameters(), lr = config['lr'])
 ############################################################ EPISODES LOOP
 
 for i_episode in trange(n_episodes):
+
     
     # play the episode
     total_return = 0
+    best_return = -999999999999
     state,_ = env.reset(seed)
+
+    # initialize state list; first history_length random frames
+    states = [state[k+1] for k in range(-env_kwargs['history_length'],0)]
 
     for t in count():
 
@@ -92,6 +100,7 @@ for i_episode in trange(n_episodes):
 
         # Move to the next state
         state = next_state
+        states += [state[0]]
 
         #################################################### TRAINING
         
@@ -157,16 +166,38 @@ for i_episode in trange(n_episodes):
             writer.add_scalar("T",t, i_episode)
             writer.add_scalar("G",total_return, i_episode)
             writer.add_scalar("epsilon",epsilons[i_episode],i_episode)
+            # writer.add_graph(policy_net,input_to_model=state)
+
+            if total_return > best_return: best_return = total_return
+
+            # VIDEO RENDERING
+            # vid_tensor: (N,T,C,H,W)
+            # adding frames dimension
+            vid_tensor = np.stack(states) # (T,H,W)
+            # adding rgb channels dimension
+            vid_tensor = np.stack((vid_tensor,vid_tensor,vid_tensor),axis=1)
+            # adding batch dimension
+            vid_tensor = np.expand_dims(vid_tensor,axis=0) # (1,T,1,W,H)
+            
+            #set RGB values
+            vid_tensor[:,:,0,:,:] = False # R channel is screen
+            vid_tensor[:,:,1,:,:] = (vid_tensor[:,:,1,:,:] == -1) # G channel is food
+            vid_tensor[:,:,2,:,:] = (vid_tensor[:,:,2,:,:] > 0) # B channel is snake
+            vid_tensor = vid_tensor.astype(int)
+            writer.add_video("episode",vid_tensor,i_episode,fps=10)
             
             break
 
-# save model
-
+# save parameters
 writer.close()
+
+# save model
 os.makedirs(run_path, exist_ok=True)
 torch.save(model.state_dict(), os.path.join(run_path,'model.pth'))
 with open(os.path.join(run_path,'params.json'), 'w') as outfile:
     json.dump(config,outfile,indent=6)
+with open(os.path.join(run_path,'env.json'), 'w') as outfile:
+    json.dump(env_kwargs,outfile,indent=6)
 
 print("Done training")
 

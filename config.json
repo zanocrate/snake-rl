@@ -7,7 +7,7 @@
         "food_reward" : 1,
         "step_penalty" : -0.001,
         "terminated_penalty" : -1,
-        "max_steps" : 500,
+        "max_steps" : 750,
         "observation_type" : "full",
         "action_space_type" : "relative"
     },
@@ -18,9 +18,10 @@
         "batch_size" : 64,
         "tau" : 0.1,
         "gamma" : 0.9,
-        "epsilon" : 0.1,
-        "n_episodes" : 5000,
+        "epsilon" : [0.1,0.01],
+        "n_episodes" : 10000,
         "augment_dataset" : true,
-        "lr" : 0.0001
+        "lr" : 0.0001,
+        "run_name" : "relative_CNN"
     }
 }

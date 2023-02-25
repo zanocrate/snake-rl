@@ -6,3 +6,4 @@ pygame==2.1.2
 ray==2.2.0
 torch==1.13.1
 tqdm==4.64.1
+moviepy==1.0.3
