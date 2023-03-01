@@ -18,10 +18,13 @@
         "batch_size" : 64,
         "tau" : 0.1,
         "gamma" : 0.9,
-        "epsilon" : [0.1,0.01],
-        "n_episodes" : 10000,
+        "epsilon" : {
+            "start_end" : [-1,-5],
+            "space" : "log"
+        },
+        "n_episodes" : 100000,
         "augment_dataset" : true,
         "lr" : 0.0001,
-        "run_name" : "relative_CNN"
+        "run_name" : "relative_CNN_long_run"
     }
 }

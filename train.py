@@ -36,13 +36,18 @@ n_episodes = config['n_episodes']
 buffer_size = config['buffer_size']
 seed = config['seed']
 
-epsilon_start,epsilon_end = config['epsilon'] # is a list of two epsilons
-epsilons = np.linspace(epsilon_start,epsilon_end,n_episodes)
+epsilon_start,epsilon_end = config['epsilon']['start_end'] # is a list of two epsilons
+if config['epsilon']['space'] == 'linear':
+    epsilons = np.linspace(epsilon_start,epsilon_end,n_episodes)
+elif config['epsilon']['space'] == 'log':
+    epsilons = np.logspace(epsilon_start,epsilon_end,n_episodes, base = 10)
 
+# other parameters
 
 # threshold for gradient clipping
 max_norm = 100
-
+# alpha for EMA in hyperparameter metrics
+alpha = 0.99
 
 ################### TRAINING
 
@@ -65,11 +70,13 @@ optimizer = Adam(policy_net.parameters(), lr = config['lr'])
 
 ############################################################ EPISODES LOOP
 
+returns = np.empty(n_episodes,dtype=float)
+
 for i_episode in trange(n_episodes):
 
     
     # play the episode
-    total_return = 0
+    returns[i_episode] = 0
     best_return = -999999999999
     state,_ = env.reset(seed)
 
@@ -93,7 +100,7 @@ for i_episode in trange(n_episodes):
     
         next_state, reward, done, _ = env.step(action)
 
-        total_return+=reward
+        returns[i_episode]+=reward
         
         # Store the transition in memory
         replay_buffer._add_sample(state,action,reward,next_state,done)
@@ -164,11 +171,9 @@ for i_episode in trange(n_episodes):
         if done:
             
             writer.add_scalar("T",t, i_episode)
-            writer.add_scalar("G",total_return, i_episode)
+            writer.add_scalar("G",returns[i_episode], i_episode)
             writer.add_scalar("epsilon",epsilons[i_episode],i_episode)
             # writer.add_graph(policy_net,input_to_model=state)
-
-            if total_return > best_return: best_return = total_return
 
             # VIDEO RENDERING
             # vid_tensor: (N,T,C,H,W)
@@ -188,7 +193,47 @@ for i_episode in trange(n_episodes):
             
             break
 
-# save parameters
+
+
+#################################################### SAVE HYPERPARAMETERS
+
+# calculate exponential moving average
+
+# same implementation as tensorboard
+def smooth(scalars: list[float], weight: float) -> list[float]:
+    """
+    EMA implementation according to
+    https://github.com/tensorflow/tensorboard/blob/34877f15153e1a2087316b9952c931807a122aa7/tensorboard/components/vz_line_chart2/line-chart.ts#L699
+    """
+    last = 0
+    smoothed = []
+    num_acc = 0
+    for next_val in scalars:
+        last = last * weight + (1 - weight) * next_val
+        num_acc += 1
+        # de-bias
+        debias_weight = 1
+        if weight != 1:
+            debias_weight = 1 - math.pow(weight, num_acc)
+        smoothed_val = last / debias_weight
+        smoothed.append(smoothed_val)
+
+    return smoothed
+
+
+
+smoothed_returns = smooth(returns,weight=alpha)
+
+# use last EMA value as metric for training
+
+writer.add_hparams(
+    hparam_dict=json_f,
+    metric_dict={
+        'EMA_last_return' : smoothed_returns[-1]
+    },
+    run_name = config['run_name']
+)
+
 writer.close()
 
 # save model
