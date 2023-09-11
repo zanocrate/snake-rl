@@ -21,13 +21,13 @@ with open('config.json') as f:
 
 ################### LOGGING
 
-tb_runs_dir = '/dataNfs/snake/runs/'
+tb_runs_dir = 'runs/'
 run_path = os.path.join(tb_runs_dir,config['run_name'])
 writer = SummaryWriter(run_path)
 
 ################### CONFIGS
 
-from src.model import DQN
+from src.model import DQN, DQN_simpler
 
 load_buffer_path = None
 
@@ -60,7 +60,8 @@ if load_buffer_path is not None: replay_buffer.load(load_buffer_path)
 
 
 # initialize Net
-model = DQN(state_shape,env_kwargs['action_space_type'])
+# model = DQN(state_shape,env_kwargs['action_space_type'])
+model = DQN_simpler(state_shape,env_kwargs['action_space_type'])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 policy_net = deepcopy(model)
 target_net = deepcopy(model)

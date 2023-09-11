@@ -19,12 +19,12 @@
         "tau" : 0.1,
         "gamma" : 0.9,
         "epsilon" : {
-            "start_end" : [-1,-5],
-            "space" : "log"
+            "start_end" : [0.15,0.005],
+            "space" : "linear"
         },
-        "n_episodes" : 100000,
+        "n_episodes" : 20000,
         "augment_dataset" : true,
         "lr" : 0.0001,
-        "run_name" : "relative_CNN_long_run"
+        "run_name" : "relative_simpler_CNN"
     }
 }

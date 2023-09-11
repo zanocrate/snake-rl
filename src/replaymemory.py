@@ -48,7 +48,7 @@ class ReplayMemory(Dataset):
         """
         
         if self.augment:
-            samples = self._agument_sample((s,a,r,s2,terminal))
+            samples = self._augment_sample((s,a,r,s2,terminal))
         else:
             samples = [(s,a,r,s2,terminal)]
 
@@ -69,7 +69,7 @@ class ReplayMemory(Dataset):
             self.buffer['s2'][index] = torch.from_numpy(sample[3].copy())
             self.buffer['terminal'][index] = sample[4]
 
-    def _agument_sample(self,sample):
+    def _augment_sample(self,sample):
         """
         Takes (s,a,r,s2,terminal) sample and returns a list of [(s,a,r,s2,terminal)] samples, on for each of game symmetries.
         """
