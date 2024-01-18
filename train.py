@@ -104,7 +104,7 @@ def train_loop(json_f,model=None):
                 with torch.no_grad(): # disable gradient calculations. useful when doing inference to skip computation
                     # find the maximum over the action dim for each batch sample
                     # but batch_size is one in inference so expand dims
-                    q = policy_net(torch.from_numpy(np.expand_dims(state,axis=0)).to(device)) # q is shaped like (1,n_actions)
+                    q = policy_net(torch.tensor(np.expand_dims(state,axis=0),dtype=torch.float,device=device)) # q is shaped like (1,n_actions)
                     action = q.argmax(1).item() # get the argmax along the actions axis
 
         
