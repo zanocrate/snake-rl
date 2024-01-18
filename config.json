@@ -2,14 +2,14 @@
     "env" : {
         "width" : 16,
         "height" : 16,
-        "history_length" : 3,
+        "history_length" : 1,
         "periodic" : false,
         "food_reward" : 1,
         "step_penalty" : -0.001,
         "terminated_penalty" : -1,
         "max_steps" : 750,
         "observation_type" : "full",
-        "action_space_type" : "relative"
+        "action_space_type" : "absolute"
     },
 
     "training" : {
@@ -23,8 +23,14 @@
             "space" : "linear"
         },
         "n_episodes" : 20000,
-        "augment_dataset" : true,
+        "augment_dataset" : false,
         "lr" : 0.0001,
-        "run_name" : "relative_simpler_CNN"
+        "clipping_threshold" : 100   
+    },
+
+    "logging" : {
+        "run_name" : "absolute_CNN_one_frame_full_observation",
+        "log_dir" : "runs/",
+        "load_buffer_path" : null
     }
 }
