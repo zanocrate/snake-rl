@@ -131,8 +131,8 @@ def train_loop(json_f,model=None):
 
                 # Compute a mask of non-final states and concatenate the batch elements
                 # (a final state would've been the one after which simulation ended)
-                non_final_mask = torch.logical_not(batch['terminal']).to(device)
-                non_final_next_states = batch['s2'][non_final_mask].to(device)
+                non_final_mask = torch.logical_not(batch['terminal'].to(device)).to(device)
+                non_final_next_states = batch['s2'].to(device)[non_final_mask]
                 state_batch = batch['s'].to(device)
                 action_batch = batch['a'].to(device)
                 reward_batch = batch['r'].to(device)
@@ -140,7 +140,7 @@ def train_loop(json_f,model=None):
                 # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
                 # columns of actions taken. These are the actions which would've been taken
                 # for each batch state according to policy_net
-                state_action_values = policy_net(state_batch.numpy()).gather(1,action_batch[:,None])
+                state_action_values = policy_net(state_batch).gather(1,action_batch[:,None])
 
                 # Compute V(s_{t+1}) for all next states.
                 # Expected values of actions for non_final_next_states are computed based
@@ -150,7 +150,7 @@ def train_loop(json_f,model=None):
                 next_state_values = torch.zeros(config['batch_size'], device=device)
                 with torch.no_grad():
                     # compute
-                    next_state_values[non_final_mask] = target_net(non_final_next_states.numpy()).max(1)[0]
+                    next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0]
                 # Compute the expected Q values
                 expected_state_action_values = (next_state_values * config['gamma']) + reward_batch
 
