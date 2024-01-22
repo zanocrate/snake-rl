@@ -20,6 +20,17 @@ A Snake custom [gymnasium](https://gymnasium.farama.org/) environment, and a fra
 </tr>
 </table>
 
+## Usage
+
+Define your `DQN` network class as a PyTorch `nn.Module` subclass in the `src/model.py` module, customize your training and environment configurations in `config.json`, and run
+
+```shell
+python train.py
+```
+
+The script will run the agent for the predefined number of episodes, and at each step perform an update of the Q network via stochastic gradient descent, as prescribed in the glorious [Atari paper](https://doi.org/10.48550/arXiv.1312.5602) where this algorithm was first introduced.
+
+At each episode, the script will report some useful metrics, along with a full replay of the episode, in the `runs/{run_name}` folder, using PyTorch's TensorBoard support, and at the end of the training also save a copy of the trained model in the same folder.
 
 ## The environment
 
@@ -61,14 +72,3 @@ At each step, the environment returns a reward, based on one of three possible o
 3. *Failing*: whenever a step results in the episode ending for any of the reasons listed above
 
 
-## Usage
-
-Define your `DQN` network class as a PyTorch `nn.Module` subclass in the `src/model.py` module, customize your training and environment configurations in `config.json`, and run
-
-```shell
-python train.py
-```
-
-The script will run the agent for the predefined number of episodes, and at each step perform an update of the Q network via stochastic gradient descent, as prescribed in the glorious [Atari paper](https://doi.org/10.48550/arXiv.1312.5602) where this algorithm was first introduced.
-
-At each episode, the script will report some useful metrics, along with a full replay of the episode, in the `runs/{run_name}` folder, using PyTorch's TensorBoard support, and at the end of the training also save a copy of the trained model in the same folder.
